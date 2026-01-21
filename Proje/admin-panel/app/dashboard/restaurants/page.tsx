@@ -217,13 +217,13 @@ export default function RestaurantsPage() {
             <select
               value={riskFilter}
               onChange={(e) => setRiskFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
             >
-              <option value="ALL">Tüm Durumlar</option>
-              <option value="SAFE">Güvenli</option>
-              <option value="WATCHLIST">İzlemede</option>
-              <option value="RED_FLAG">Riskli</option>
-              <option value="BLACKLISTED">Yasaklı</option>
+              <option value="ALL" className="text-gray-900 bg-white">Tüm Durumlar</option>
+              <option value="SAFE" className="text-gray-900 bg-white">Güvenli</option>
+              <option value="WATCHLIST" className="text-gray-900 bg-white">İzlemede</option>
+              <option value="RED_FLAG" className="text-gray-900 bg-white">Riskli</option>
+              <option value="BLACKLISTED" className="text-gray-900 bg-white">Yasaklı</option>
             </select>
           </div>
 
@@ -231,11 +231,11 @@ export default function RestaurantsPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
           >
-            <option value="complaints">Şikayet Sayısı</option>
-            <option value="orders">Sipariş Sayısı</option>
-            <option value="name">İsim (A-Z)</option>
+            <option value="complaints" className="text-gray-900 bg-white">Şikayet Sayısı</option>
+            <option value="orders" className="text-gray-900 bg-white">Sipariş Sayısı</option>
+            <option value="name" className="text-gray-900 bg-white">İsim (A-Z)</option>
           </select>
         </div>
       </Card>
@@ -365,12 +365,12 @@ function EditRiskModal({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as Restaurant['riskStatus'])}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
             >
-              <option value="SAFE">Güvenli</option>
-              <option value="WATCHLIST">İzlemede</option>
-              <option value="RED_FLAG">Riskli</option>
-              <option value="BLACKLISTED">Yasaklı</option>
+              <option value="SAFE" className="text-gray-900 bg-white">Güvenli</option>
+              <option value="WATCHLIST" className="text-gray-900 bg-white">İzlemede</option>
+              <option value="RED_FLAG" className="text-gray-900 bg-white">Riskli</option>
+              <option value="BLACKLISTED" className="text-gray-900 bg-white">Yasaklı</option>
             </select>
           </div>
 
