@@ -29,7 +29,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-md flex flex-col">
+      <aside className="w-64 bg-white shadow-md flex flex-col" suppressHydrationWarning>
         <div className="p-6 border-b">
           <h1 className="text-xl font-bold text-gray-900">Gıda Nöbeti</h1>
           <p className="text-sm text-gray-600">Yönetici Paneli</p>
