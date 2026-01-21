@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: gidanobeti_db
+    environment:
+      POSTGRES_USER: gidanobeti
+      POSTGRES_PASSWORD: secure_password_here
+      POSTGRES_DB: gidanobeti_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gidanobeti"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gidanobeti_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: gidanobeti_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gidanobeti_network
+
+  # Backend API
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gidanobeti_api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://gidanobeti:secure_password_here@db:5432/gidanobeti_db
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: your-super-secret-jwt-key-change-this
+      DEBUG: "True"
+      ENVIRONMENT: development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - gidanobeti_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  gidanobeti_network:
+    driver: bridge

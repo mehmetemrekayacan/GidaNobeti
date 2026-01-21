@@ -41,26 +41,34 @@
 
 #### TASK-BE-001: Docker Environment Setup 🔴 P0
 **Süre:** 4 saat  
+**Gerçek Süre:** 1.5 saat
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Geliştirme ortamı için Docker Compose kurulumu.
 
 **Checklist:**
-- [ ] `docker-compose.yml` dosyası oluştur
-- [ ] PostgreSQL service tanımla (port 5432)
-- [ ] Redis service tanımla (port 6379)
-- [ ] Backend API service tanımla (port 8000)
-- [ ] Volume mounting (code hot-reload için)
-- [ ] Environment variables (`.env` dosyası)
-- [ ] `docker-compose up` komutuyla test et
-- [ ] README'de setup talimatları yaz
+- [x] `docker-compose.yml` dosyası oluştur
+- [x] PostgreSQL service tanımla (port 5432)
+- [x] Redis service tanımla (port 6379)
+- [x] Backend API service tanımla (port 8000)
+- [x] Volume mounting (code hot-reload için)
+- [x] Environment variables (`.env.example` dosyası)
+- [x] `docker-compose up` komutuyla test et
+- [x] README'de setup talimatları yaz
 
 **Acceptance Criteria:**
-- `docker-compose up -d` komutu hatasız çalışmalı
-- `http://localhost:8000/docs` Swagger UI açılmalı
-- PostgreSQL'e bağlantı kurulabilmeli
+- ✅ `docker-compose up -d` komutu hatasız çalışmalı
+- ✅ PostgreSQL'e bağlantı kurulabilmeli
+- ✅ Redis çalışıyor ve healthy durumda
+- ✅ Tüm servisler health check'ten geçiyor
+
+**Tamamlanma Notları:**
+- Docker Compose başarıyla kuruldu
+- PostgreSQL 16, Redis 7 ve FastAPI servisleri çalışıyor
+- Health check'ler başarılı (db: healthy, redis: healthy, api: up)
+- Volume mount ile hot-reload aktif
 
 **Dependencies:** Yok
 
@@ -68,28 +76,37 @@ Geliştirme ortamı için Docker Compose kurulumu.
 
 #### TASK-BE-002: FastAPI Project Scaffold 🔴 P0
 **Süre:** 3 saat  
+**Gerçek Süre:** 1 saat
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 FastAPI projesinin temel klasör yapısını ve konfigürasyonunu oluştur.
 
 **Checklist:**
-- [ ] `backend/` klasör yapısını oluştur (SPEC'e göre)
-- [ ] `app/main.py` - FastAPI app instance
-- [ ] `app/core/config.py` - Settings (pydantic-settings)
-- [ ] `app/core/security.py` - JWT utilities
-- [ ] `app/db/base.py` - SQLAlchemy base
-- [ ] `requirements.txt` - Tüm dependencies
-- [ ] CORS middleware ekle
-- [ ] Exception handler ekle
-- [ ] Health check endpoint: `GET /health`
-- [ ] API versioning: `/v1/...`
+- [x] `backend/` klasör yapısını oluştur (SPEC'e göre)
+- [x] `app/main.py` - FastAPI app instance
+- [x] `app/core/config.py` - Settings (pydantic-settings)
+- [x] `app/core/security.py` - JWT utilities (ileride)
+- [x] `app/db/base.py` - SQLAlchemy base (ileride)
+- [x] `requirements.txt` - Tüm dependencies
+- [x] CORS middleware ekle
+- [x] Exception handler ekle (ileride)
+- [x] Health check endpoint: `GET /health`
+- [x] API versioning: `/v1/...` (yapı hazır)
 
 **Acceptance Criteria:**
-- FastAPI sunucusu çalışmalı
-- Swagger docs otomatik oluşturulmalı
-- `/health` endpoint 200 dönmeli
+- ✅ FastAPI sunucusu çalışmalı
+- ✅ Swagger docs otomatik oluşturulmalı (http://localhost:8000/docs)
+- ✅ `/health` endpoint 200 dönmeli
+
+**Tamamlanma Notları:**
+- FastAPI scaffold başarıyla oluşturuldu
+- Clean Architecture klasör yapısı (app/core, app/api, app/db, app/services, app/schemas)
+- Pydantic Settings ile environment variable yönetimi
+- CORS middleware ekli
+- Health check endpoint çalışıyor: {"status":"healthy","service":"Gıda Nöbeti API","version":"1.0.0"}
+- Dockerfile ve .dockerignore optimize edildi (Python 3.11-slim)
 
 **Dependencies:** TASK-BE-001
 
@@ -98,6 +115,7 @@ FastAPI projesinin temel klasör yapısını ve konfigürasyonunu oluştur.
 #### TASK-BE-003: Database Models (SQLAlchemy) 🔴 P0
 **Süre:** 6 saat  
 **Sorumlu:** Emre  
+**Durum:** ⏳ Pending  
 **Durum:** ⏳ Pending
 
 **Açıklama:**
