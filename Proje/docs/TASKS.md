@@ -1307,15 +1307,16 @@ Restoran listesi ve risk yönetimi.
 
 #### TASK-AD-005: Orders List Page 🟢 P2
 **Süre:** 4 saat  
+**Gerçek Süre:** 1 saat
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Tüm siparişleri görme ve arama.
 
 **Checklist:**
-- [ ] `src/pages/orders.tsx`
-- [ ] DataTable:
+- [x] `app/dashboard/orders/page.tsx` oluşturuldu
+- [x] DataTable:
   - [ ] Öğrenci adı
   - [ ] Restoran
   - [ ] Tarih/saat
