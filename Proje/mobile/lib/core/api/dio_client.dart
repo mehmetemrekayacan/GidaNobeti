@@ -1,10 +1,25 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 import 'interceptors/auth_interceptor.dart';
 import 'interceptors/logging_interceptor.dart';
 
 /// Dio HTTP client configuration
 class DioClient {
-  static const String _baseUrl = 'http://10.0.2.2:8000'; // Android emulator
+  // Platform-specific base URL
+  static String get _baseUrl {
+    if (kIsWeb) {
+      // Web: use localhost
+      return 'http://localhost:8000';
+    } else if (Platform.isAndroid) {
+      // Android Emulator: special IP
+      return 'http://10.0.2.2:8000';
+    } else {
+      // iOS Simulator & others: localhost
+      return 'http://localhost:8000';
+    }
+  }
+  
   static const Duration _connectTimeout = Duration(seconds: 30);
   static const Duration _receiveTimeout = Duration(seconds: 30);
 

@@ -108,15 +108,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   /// Extract user-friendly error message
   String _getErrorMessage(dynamic error) {
-    if (error.toString().contains('Invalid TCKN or password')) {
+    final errorStr = error.toString().toLowerCase();
+    
+    if (errorStr.contains('invalid tckn or password') || 
+        errorStr.contains('status: 401')) {
       return 'TC Kimlik No veya şifre hatalı';
-    } else if (error.toString().contains('TCKN already registered')) {
+    } else if (errorStr.contains('tckn already registered') || 
+               errorStr.contains('status: 409')) {
       return 'Bu TC Kimlik No zaten kayıtlı';
-    } else if (error.toString().contains('Email already in use')) {
+    } else if (errorStr.contains('email already in use')) {
       return 'Bu e-posta adresi zaten kullanılıyor';
-    } else if (error.toString().contains('Connection timeout')) {
+    } else if (errorStr.contains('connection timeout') || 
+               errorStr.contains('timeoutexception')) {
       return 'Bağlantı zaman aşımına uğradı';
-    } else if (error.toString().contains('Network error')) {
+    } else if (errorStr.contains('network error') || 
+               errorStr.contains('connectionerror')) {
       return 'Ağ bağlantısı hatası';
     } else {
       return 'Bir hata oluştu: ${error.toString()}';
