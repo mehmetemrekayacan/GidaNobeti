@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
+from app.api.v1.auth import router as auth_router
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -24,6 +25,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+
+# Include Routers
+app.include_router(auth_router, prefix="/v1")
 
 
 # Health Check Endpoint (minimal overhead)
