@@ -7,6 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.api.v1.auth import router as auth_router
+from app.db.session import engine
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -64,6 +68,16 @@ async def startup_event():
     print(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} started")
     print(f"📍 Environment: {settings.ENVIRONMENT}")
     print(f"🔍 Debug Mode: {settings.DEBUG}")
+    
+    # Test database connection
+    try:
+        from app.db.models.base import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✅ Database connection successful and tables created/verified")
+    except Exception as e:
+        print(f"⚠️ Database initialization warning: {str(e)}")
+        logger.warning(f"Database initialization: {str(e)}")
 
 
 # Shutdown Event

@@ -40,7 +40,7 @@ class User(Base):
     # Identity (Encrypted)
     tckn_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     full_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str | None] = mapped_column(String(100), unique=True)
+    email: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True, default=None)
     phone_number: Mapped[str | None] = mapped_column(String(20))
     
     # Dorm Information
