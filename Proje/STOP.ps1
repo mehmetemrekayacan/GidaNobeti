@@ -16,8 +16,8 @@ Start-Sleep -Milliseconds 500
 Write-Host "2/4 Backend (Port 8000) Kapatiliyor..." -ForegroundColor Yellow
 $backendProcesses = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
 if ($backendProcesses) {
-    foreach ($pid in $backendProcesses) {
-        Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+    foreach ($processId in $backendProcesses) {
+        Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     }
     Write-Host "   Backend kapatildi" -ForegroundColor Green
 } else {
@@ -29,8 +29,8 @@ Start-Sleep -Milliseconds 500
 Write-Host "3/4 Admin Panel (Port 3000) Kapatiliyor..." -ForegroundColor Yellow
 $adminProcesses = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
 if ($adminProcesses) {
-    foreach ($pid in $adminProcesses) {
-        Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+    foreach ($processId in $adminProcesses) {
+        Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     }
     Write-Host "   Admin Panel kapatildi" -ForegroundColor Green
 } else {

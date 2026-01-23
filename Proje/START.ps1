@@ -22,11 +22,9 @@ Write-Host ""
 
 # 2. BACKEND
 Write-Host "2/4 Backend API Baslatiliyor (FastAPI - Port 8000)..." -ForegroundColor Yellow
-Set-Location "$ProjectRoot\backend"
 
-Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
+Start-Process powershell -WorkingDirectory "$ProjectRoot\backend" -ArgumentList "-NoExit", "-Command", @"
 Write-Host 'Backend Baslatiliyor...' -ForegroundColor Cyan
-cd '$ProjectRoot\backend'
 & '$ProjectRoot\..\.venv\Scripts\Activate.ps1'
 Write-Host 'Dependencies kontrol ediliyor...' -ForegroundColor Yellow
 pip install -r requirements.txt --quiet
@@ -40,11 +38,9 @@ Write-Host ""
 
 # 3. ADMIN PANEL
 Write-Host "3/4 Admin Panel Baslatiliyor (Next.js - Port 3000)..." -ForegroundColor Yellow
-Set-Location "$ProjectRoot\admin-panel"
 
-Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
+Start-Process powershell -WorkingDirectory "$ProjectRoot\admin-panel" -ArgumentList "-NoExit", "-Command", @"
 Write-Host 'Admin Panel Baslatiliyor...' -ForegroundColor Cyan
-cd '$ProjectRoot\admin-panel'
 Write-Host 'Dependencies kontrol ediliyor...' -ForegroundColor Yellow
 npm install
 Write-Host 'Next.js baslatiliyor: http://localhost:3000' -ForegroundColor Green
@@ -57,12 +53,10 @@ Write-Host ""
 
 # 4. MOBILE APP
 Write-Host "4/4 Mobile App Baslatiliyor (Flutter)..." -ForegroundColor Yellow
-Set-Location "$ProjectRoot\mobile"
 Write-Host "   Cihaz secimi yapilacak..." -ForegroundColor Cyan
 
-Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
+Start-Process powershell -WorkingDirectory "$ProjectRoot\mobile" -ArgumentList "-NoExit", "-Command", @"
 Write-Host 'Mobile App Baslatiliyor...' -ForegroundColor Cyan
-cd '$ProjectRoot\mobile'
 Write-Host 'Dependencies kontrol ediliyor...' -ForegroundColor Yellow
 flutter pub get
 Write-Host 'Kullanilabilir cihazlar:' -ForegroundColor Green
@@ -97,10 +91,11 @@ Write-Host "   Backend durdurmak: Backend terminalinde Ctrl+C" -ForegroundColor 
 Write-Host "   Admin Panel durdurmak: Admin Panel terminalinde Ctrl+C" -ForegroundColor White
 Write-Host "   Mobile durdurmak: Mobile terminalinde q tusuna basin" -ForegroundColor White
 Write-Host ""
-Write-Host "NOT: Backend ve Admin Panel otomatik reload destekler" -ForegroundColor Cyan
+Write-Host "NOT: Backend ve Admin Panel otomatik reload destekler (kod degisikligi = aninda guncelleme)" -ForegroundColor Cyan
 Write-Host ""
 
 Set-Location $ProjectRoot
 Write-Host "Iyi calismalar! Bu pencereyi kapatabilirsiniz." -ForegroundColor Green
 Write-Host ""
-Read-Host "Cikmak icin Enter'a basin"
+
+Start-Sleep -Seconds 2
