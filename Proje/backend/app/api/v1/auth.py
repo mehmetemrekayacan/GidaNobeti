@@ -88,7 +88,7 @@ async def register(
         access_token=access_token,
         token_type="bearer",
         expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        user=UserResponse.from_orm(new_user)
+        user=UserResponse.model_validate(new_user)
     )
 
 
@@ -184,5 +184,5 @@ async def login(
         access_token=access_token,
         token_type="bearer",
         expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        user=UserResponse.from_orm(user)
+        user=UserResponse.model_validate(user)
     )
