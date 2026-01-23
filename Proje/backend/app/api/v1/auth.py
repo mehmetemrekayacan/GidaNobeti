@@ -132,6 +132,19 @@ async def login(
                 detail="Invalid TCKN or password"
             )
 
+        # Check if account is locked (BEFORE password check)
+        if user.lockout_until:
+            if datetime.now(timezone.utc) < user.lockout_until:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Account locked due to multiple failed login attempts. Try again in 30 minutes."
+                )
+            else:
+                # Reset lockout if time has passed
+                user.lockout_until = None
+                user.login_attempts = 0
+                await db.commit()
+
         # Verify password
         if not verify_password(request.password, user.password_hash):
             # Increment login attempts
@@ -151,17 +164,6 @@ async def login(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid TCKN or password"
             )
-
-        # Check if account is locked
-        if user.lockout_until:
-            if datetime.now(timezone.utc) < user.lockout_until:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Account is temporarily locked. Please try again later."
-                )
-            else:
-                # Reset lockout
-                user.lockout_until = None
 
         # Check if account is active
         if not user.is_active:

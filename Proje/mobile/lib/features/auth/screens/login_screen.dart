@@ -37,29 +37,27 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: BlocConsumer<AuthBloc, AuthState>(
+        child: BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
             if (state is AuthError) {
-              // Show error message after frame builds
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                ScaffoldMessenger.of(context).clearSnackBars();
-                ScaffoldMessenger.of(context).showSnackBar(
+              // Show error message
+              ScaffoldMessenger.of(context)
+                ..clearSnackBars()
+                ..showSnackBar(
                   SnackBar(
                     content: Text(state.message),
                     backgroundColor: Colors.red,
-                    duration: const Duration(seconds: 3),
+                    duration: const Duration(seconds: 4),
                   ),
                 );
-              });
             } else if (state is AuthAuthenticated) {
               // Navigate to home screen
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                Navigator.pushReplacementNamed(context, '/home');
-              });
+              Navigator.pushReplacementNamed(context, '/home');
             }
           },
-          builder: (context, state) {
-            final isLoading = state is AuthLoading;
+          child: BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, state) {
+              final isLoading = state is AuthLoading;
 
             return Center(
               child: SingleChildScrollView(
@@ -209,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             );
-          },
+          }),
         ),
       ),
     );

@@ -70,11 +70,22 @@ npm run dev
 
 ### ADIM 5: Mobile (Opsiyonel - Gerekirse Ac)
 **Yeni terminal ac (+ butonuna tikla):**
+
+**Web Server Mode (Firefox, Chrome, vb. - ONERILIR):**
+```powershell
+cd mobile
+flutter run -d web-server --web-port 3001
+```
+**Tarayicida ac:** http://localhost:3001
+
+**Veya Edge/Chrome ile direkt:**
 ```powershell
 cd mobile
 flutter run
 ```
 **Cihaz sec:** `2` yaz (Edge tarayici)
+
+> **Not:** Web-server mode daha stabil, herhangi bir tarayicida acabilirsin.
 
 ---
 
@@ -83,7 +94,7 @@ flutter run
 **Tarayicida Ac:**
 - ✅ Backend API: http://localhost:8000/docs
 - ✅ Admin Panel: http://localhost:3000
-- ✅ Mobile: Otomatik acilir (Edge'de)
+- ✅ Mobile: http://localhost:3001 (Mobile web-server mode)
 
 **Hepsi Acildiysa:** Kodlamaya baslayabilirsin! 🎉
 
@@ -94,13 +105,16 @@ flutter run
 ### Hot Reload (Otomatik Guncelleme)
 - **Backend:** Kod degistir -> Kaydet -> Otomatik yenilenir ✅
 - **Admin Panel:** Kod degistir -> Kaydet -> Tarayici otomatik yenilenir ✅
-- **Mobile:** Kod degistir -> Kaydet -> Terminal'de `r` tusuna bas 🔄
+- **Mobile:** Kod degistir -> Kaydet -> Terminal'de `r` tusuna bas (veya tarayiciyi yenile F5) 🔄
 
 ### Terminal'leri Izle
 - **Terminal 1 (Docker):** Mesaj vermez, arka planda calisir
 - **Terminal 2 (Backend):** API isteklerini gosterir (POST /v1/auth/register, vb.)
 - **Terminal 3 (Admin):** Next.js build log'lari
-- **Terminal 4 (Mobile):** Flutter hot reload mesajlari
+- **Terminal 4 (Mobile):** 
+  - **Web-server mode:** Sadece hot reload komutlari gosterir
+  - **Log'lar icin:** F12 (Developer Console) ac -> Console tab'i
+  - **Edge/Chrome direkt mode:** Terminal'de BLoC log'lari gosterir
 
 ### Yeni Terminal Acma
 ```
