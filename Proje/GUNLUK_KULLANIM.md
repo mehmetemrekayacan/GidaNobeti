@@ -24,37 +24,68 @@
 
 ---
 
-### ADIM 3: Tum Uygulamalari Baslat (TEK KOMUT)
+### ADIM 3: VS Code'da Terminal Ac
 ```
-1. Proje klasorunde START.bat dosyasina cift tikla
-   VEYA
-2. VS Code'da Terminal ac (Ctrl + `)
-3. Su komutu calistir:
+Ctrl + ` (Ters tirnak - ESC tusunun altinda)
 ```
 
-```cmd
-START.bat
-```
-
-**Ne Olacak:**
-- 4 terminal penceresi acilacak
-- Docker servisleri baslayacak (PostgreSQL + Redis)
-- Backend baslayacak (http://localhost:8000)
-- Admin Panel baslayacak (http://localhost:3000)
-- Mobile baslayacak (cihaz secimi yapacaksin)
-
-**Mobile Icin:** Terminal'de `2` yaz (Edge web tarayici)
+Sag ust kosede + butonuna tikla -> **3 terminal ac**:
+- Terminal 1: Docker
+- Terminal 2: Backend
+- Terminal 3: Admin Panel
 
 ---
 
-### ADIM 4: Sistemin Calistigini Kontrol Et
+### ADIM 4: Servisleri Baslat (Sirasıyla)
+
+#### Terminal 1 - Docker Servisleri:
+```powershell
+docker-compose up -d
+```
+**Bekle:** "✔ Container gidanobeti_db Healthy" mesajini gor ✅
+
+---
+
+#### Terminal 2 - Backend API:
+```powershell
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+**Bekle:** "🚀 Gıda Nöbeti API v1.0.0 started" mesajini gor ✅
+
+**Test:** http://localhost:8000/docs adresini ac
+
+---
+
+#### Terminal 3 - Admin Panel:
+```powershell
+cd admin-panel
+npm run dev
+```
+**Bekle:** "✓ Ready in 2.5s" mesajini gor ✅
+
+**Test:** http://localhost:3000 adresini ac
+
+---
+
+### ADIM 5: Mobile (Opsiyonel - Gerekirse Ac)
+**Yeni terminal ac (+ butonuna tikla):**
+```powershell
+cd mobile
+flutter run
+```
+**Cihaz sec:** `2` yaz (Edge tarayici)
+
+---
+
+### ✅ Sistem Hazir Kontrolu
 
 **Tarayicida Ac:**
-- Backend API: http://localhost:8000/docs
-- Admin Panel: http://localhost:3000
-- Mobile: Otomatik acilir (Edge'de)
+- ✅ Backend API: http://localhost:8000/docs
+- ✅ Admin Panel: http://localhost:3000
+- ✅ Mobile: Otomatik acilir (Edge'de)
 
-**Hepsi Acildiysa:** ✅ Kodlamaya baslayabilirsin!
+**Hepsi Acildiysa:** Kodlamaya baslayabilirsin! 🎉
 
 ---
 
@@ -66,52 +97,100 @@ START.bat
 - **Mobile:** Kod degistir -> Kaydet -> Terminal'de `r` tusuna bas 🔄
 
 ### Terminal'leri Izle
-- Backend terminal: API isteklerini gosterir
-- Admin terminal: Next.js build log'lari
-- Mobile terminal: Flutter hot reload mesajlari
+- **Terminal 1 (Docker):** Mesaj vermez, arka planda calisir
+- **Terminal 2 (Backend):** API isteklerini gosterir (POST /v1/auth/register, vb.)
+- **Terminal 3 (Admin):** Next.js build log'lari
+- **Terminal 4 (Mobile):** Flutter hot reload mesajlari
+
+### Yeni Terminal Acma
+```
+Ctrl + Shift + ` (Yeni terminal)
+Veya sag ustteki + butonuna tikla
+```
 
 ---
 
 ## 🛑 Is Bittiginde (Kapanmadan Once)
 
-### ADIM 1: Tum Uygulamalari Durdur
-```cmd
-STOP.bat
-```
+### Terminal'lerde Durdurma (Sirasıyla)
 
-**Veya Manuel:**
-- Backend terminal: Ctrl + C
-- Admin terminal: Ctrl + C
-- Mobile terminal: q tusuna bas
-- Docker: `docker-compose down` (opsiyonel - acik kalabilir)
+**1. Mobile varsa:** `q` tusuna bas (terminal 4)
+
+**2. Admin Panel:** `Ctrl + C` (terminal 3)
+
+**3. Backend:** `Ctrl + C` (terminal 2)
+
+**4. Docker (Opsiyonel):** 
+```powershell
+docker-compose down
+```
+Veya acik birak (problem olmaz)
+
+**5. VS Code'u Kapat**
 
 ---
 
 ## ⚡ Hizli Komutlar
 
-### Sadece Backend Baslat
+### Sadece Backend Yeniden Baslat
 ```powershell
+# Terminal 2'de Ctrl+C ile durdur, sonra:
 cd backend
-& ..\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Sadece Admin Panel Baslat
+### Sadece Admin Panel Yeniden Baslat
 ```powershell
+# Terminal 3'te Ctrl+C ile durdur, sonra:
 cd admin-panel
 npm run dev
 ```
 
-### Sadece Mobile Baslat
-```powershell
-cd mobile
-flutter run
-```
-
 ### Docker'i Yeniden Baslat
 ```powershell
+# Terminal 1'de:
 docker-compose restart
 ```
+
+### Docker Loglarini Gor
+```powershell
+docker logs gidanobeti_api --tail 50
+docker logs gidanobeti_db --tail 50
+```
+
+---
+
+## 🧪 API Test (Swagger UI)
+
+### Backend API Test Adresi
+```
+http://localhost:8000/docs
+```
+
+### Kayit Endpoint Test (POST /v1/auth/register)
+```json
+{
+  "tckn": "11111111110",
+  "password": "Test1234",
+  "full_name": "Test Kullanici",
+  "email": "test@test.com",
+  "phone": "05551234567",
+  "dorm_id": "00000000-0000-0000-0000-000000000000",
+  "room_number": "101"
+}
+```
+
+### Login Endpoint Test (POST /v1/auth/login)
+```json
+{
+  "tckn": "11111111110",
+  "password": "Test1234"
+}
+```
+
+**Basarili Test Ciktisi:**
+- Status: 201 Created (register) veya 200 OK (login)
+- Response: `access_token`, `token_type`, `user` bilgileri
 
 ---
 
@@ -119,36 +198,49 @@ docker-compose restart
 
 ### Docker Baslamiyor
 ```
-Cozum: Docker Desktop'i kapat -> Tekrar ac -> Bekle
+Cozum: Docker Desktop'i kapat -> Tekrar ac -> Bekle (yesil tik)
 ```
 
-### Backend Baslamiyor
+### Backend "ModuleNotFoundError" Hatasi
 ```powershell
 cd backend
-& ..\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-### Admin Panel Baslamiyor
+### Admin Panel "npm ERR!" Hatasi
 ```powershell
 cd admin-panel
 npm install
 ```
 
-### Mobile Baslamiyor
+### Mobile "packages get failed" Hatasi
 ```powershell
 cd mobile
 flutter pub get
 ```
 
-### Port Cakismasi (3000 veya 8000 dolu)
+### Port Cakismasi (8000 veya 3000 dolu)
 ```powershell
 # Port 8000'i kontrol et
 netstat -ano | findstr :8000
 
-# Eger baska bir program kullaniyorsa, o programi kapat
-# Veya Backend'i farkli porttan baslat:
+# Processi bul ve oldur:
+Stop-Process -Id <PID> -Force
+
+# Veya farkli port kullan:
 uvicorn app.main:app --reload --port 8080
+```
+
+### Database Baglanti Hatasi
+```powershell
+# Docker DB'nin calistigini kontrol et:
+docker ps
+
+# Healthcheck bekle:
+docker ps | findstr healthy
+
+# Yeniden baslat:
+docker-compose restart db
 ```
 
 ---
@@ -157,14 +249,13 @@ uvicorn app.main:app --reload --port 8080
 
 ```
 Proje/
-├── backend/          # Python FastAPI
-├── admin-panel/      # Next.js React
-├── mobile/           # Flutter
+├── backend/          # Python FastAPI (Terminal 2)
+├── admin-panel/      # Next.js React (Terminal 3)
+├── mobile/           # Flutter (Terminal 4)
 ├── docs/             # Dokumanlar
 │   └── TASKS.md      # Gorev listesi
-├── START.bat         # ⭐ TUM UYGULAMALARI BASLAT
-├── STOP.bat          # 🛑 TUM UYGULAMALARI DURDUR
-└── docker-compose.yml # Docker ayarlari
+├── docker-compose.yml # Docker ayarlari (Terminal 1)
+└── GUNLUK_KULLANIM.md # ⭐ BU DOSYA
 ```
 
 ---
@@ -173,17 +264,27 @@ Proje/
 
 **Sabah (PC Actiktan Sonra):**
 - [ ] Docker Desktop ac (yesil tik bekle)
-- [ ] VS Code ac
-- [ ] START.bat calistir
+- [ ] VS Code ac (Proje klasorunu ac)
+- [ ] Ctrl + ` (3 terminal ac)
+- [ ] Terminal 1: `docker-compose up -d`
+- [ ] Terminal 2: `cd backend` -> `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
+- [ ] Terminal 3: `cd admin-panel` -> `npm run dev`
 - [ ] http://localhost:8000/docs ac (Backend test)
 - [ ] http://localhost:3000 ac (Admin test)
-- [ ] Mobile cihaz sec (2 = Edge)
 
 **Aksam (Is Bitince):**
-- [ ] STOP.bat calistir
-- [ ] Tum terminal'leri kapat
+- [ ] Terminal 4 (Mobile): `q` tusuna bas
+- [ ] Terminal 3 (Admin): Ctrl + C
+- [ ] Terminal 2 (Backend): Ctrl + C
+- [ ] Terminal 1 (Docker): `docker-compose down` (opsiyonel)
 - [ ] VS Code'u kapat
-- [ ] Docker Desktop acik kalabilir (opsiyonel)
+
+**Hizli Baslangic (Sadece Backend Test Icin):**
+- [ ] Docker Desktop ac
+- [ ] VS Code ac
+- [ ] Terminal 1: `docker-compose up -d`
+- [ ] Terminal 2: `cd backend` -> `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
+- [ ] http://localhost:8000/docs ac
 
 ---
 
