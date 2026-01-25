@@ -101,6 +101,39 @@ async def get_restaurant(
     return restaurant
 
 
+@router.get("/risky", response_model=list[RestaurantListItem])
+async def get_risky_restaurants(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get list of risky restaurants (WATCHLIST, RED_FLAG, BLACKLISTED).
+    
+    This endpoint is used by the mobile app home screen to display
+    restaurants that students should avoid.
+    
+    Returns restaurants ordered by:
+    1. Total complaints (descending)
+    2. Risk status severity (RED_FLAG > WATCHLIST > BLACKLISTED)
+    """
+    query = select(Restaurant).where(
+        Restaurant.current_risk_status.in_([
+            RiskStatus.WATCHLIST,
+            RiskStatus.RED_FLAG,
+            RiskStatus.BLACKLISTED
+        ])
+    ).where(
+        Restaurant.is_active == True
+    ).order_by(
+        Restaurant.total_complaints.desc(),
+        Restaurant.current_risk_status.desc()
+    )
+    
+    result = await db.execute(query)
+    restaurants = result.scalars().all()
+    
+    return restaurants
+
+
 @router.get("/stats/summary")
 async def get_restaurant_stats(
     db: AsyncSession = Depends(get_db)

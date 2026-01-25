@@ -24,8 +24,17 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // Trim and validate TCKN
+      const tckn = formData.tckn.trim().replace(/\s/g, '');
+      
+      if (tckn.length !== 11 || !/^\d+$/.test(tckn)) {
+        setError('TC Kimlik No 11 haneli rakam olmalıdır.');
+        setLoading(false);
+        return;
+      }
+
       const response = await apiClient.post('/auth/login', {
-        tckn: formData.tckn,
+        tckn: tckn,
         password: formData.password,
       });
 
@@ -45,10 +54,28 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(
-        err.response?.data?.detail || 
-        'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.'
-      );
+      
+      // Handle validation errors (422)
+      let errorMessage = 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.';
+      
+      if (err.response?.data?.detail) {
+        const detail = err.response.data.detail;
+        
+        // Pydantic validation errors come as an array
+        if (Array.isArray(detail)) {
+          errorMessage = detail
+            .map((item: any) => {
+              if (typeof item === 'string') return item;
+              if (item.msg) return `${item.loc?.join('.') || 'Field'}: ${item.msg}`;
+              return JSON.stringify(item);
+            })
+            .join(', ');
+        } else if (typeof detail === 'string') {
+          errorMessage = detail;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

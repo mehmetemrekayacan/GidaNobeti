@@ -21,6 +21,8 @@ class RegisterRequest(BaseModel):
     @classmethod
     def validate_tckn(cls, v: str) -> str:
         """Validate TCKN format"""
+        # Remove whitespace
+        v = v.strip().replace(' ', '')
         if not v.isdigit():
             raise ValueError("TCKN must contain only digits")
         if len(v) != 11:
@@ -47,6 +49,20 @@ class LoginRequest(BaseModel):
     """User login request"""
     tckn: str = Field(..., min_length=11, max_length=11, description="TC Kimlik No")
     password: str = Field(..., min_length=1, max_length=72, description="Password")
+    
+    @field_validator('tckn')
+    @classmethod
+    def validate_tckn(cls, v: str) -> str:
+        """Validate TCKN format"""
+        # Remove whitespace
+        v = v.strip().replace(' ', '')
+        if not v.isdigit():
+            raise ValueError("TCKN must contain only digits")
+        if len(v) != 11:
+            raise ValueError("TCKN must be exactly 11 digits")
+        if v[0] == '0':
+            raise ValueError("TCKN cannot start with 0")
+        return v
 
 
 class TokenResponse(BaseModel):

@@ -194,23 +194,24 @@ Database migration sistemi kurulumu ve ilk migration.
 
 #### TASK-BE-005: User Registration Endpoint 🔴 P0
 **Süre:** 4 saat  
+**Gerçek Süre:** ~3 saat
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Yeni öğrenci kaydı için API endpoint.
 
 **Checklist:**
-- [ ] `POST /v1/auth/register` endpoint
-- [ ] Request schema (Pydantic): `UserRegisterRequest`
-- [ ] TCKN validation (11 haneli, algoritma kontrolü)
-- [ ] Email validation
-- [ ] Şifre strength kontrolü (min 8 karakter, rakam, büyük harf)
-- [ ] TCKN hash (SHA-256 + salt)
-- [ ] Şifre hash (argon2)
-- [ ] Duplicate user kontrolü (TCKN zaten kayıtlı mı?)
+- [x] `POST /v1/auth/register` endpoint
+- [x] Request schema (Pydantic): `RegisterRequest`
+- [x] TCKN validation (11 haneli)
+- [x] Email validation
+- [x] Şifre strength kontrolü (Pydantic validation)
+- [x] TCKN hash (SHA-256 + salt)
+- [x] Şifre hash (argon2)
+- [x] Duplicate user kontrolü (TCKN zaten kayıtlı mı?)
 - [ ] Email verification token oluştur (future)
-- [ ] Response: user_id + success message
+- [x] Response: access_token + user info
 
 **Acceptance Criteria:**
 - Postman'den test edilebilmeli
@@ -224,29 +225,36 @@ Yeni öğrenci kaydı için API endpoint.
 
 #### TASK-BE-006: User Login Endpoint 🔴 P0
 **Süre:** 4 saat  
+**Gerçek Süre:** ~3 saat
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Kullanıcı girişi ve JWT token dönme.
 
 **Checklist:**
-- [ ] `POST /v1/auth/login` endpoint
-- [ ] Request: `{tckn, password}`
-- [ ] TCKN hash ile user bul
-- [ ] Şifre doğrulama (argon2 verify)
-- [ ] Login attempt sayacı (brute-force koruması)
-- [ ] Account lockout (5 başarısız denemeden sonra)
-- [ ] JWT token oluştur (user_id, role, dorm_id payload)
-- [ ] Token expiry: 1 saat
+- [x] `POST /v1/auth/login` endpoint
+- [x] Request: `{tckn, password}`
+- [x] TCKN hash ile user bul
+- [x] Şifre doğrulama (argon2 verify)
+- [x] Login attempt sayacı (brute-force koruması)
+- [x] Account lockout (5 başarısız denemeden sonra)
+- [x] JWT token oluştur (user_id, role, tckn_hash payload)
+- [x] Token expiry: Configurable (default 60 dakika)
 - [ ] Refresh token (future - v2)
-- [ ] Response: `{access_token, user: {...}}`
+- [x] Response: `{access_token, user: {...}}`
 
 **Acceptance Criteria:**
-- Doğru credentials ile token dönmeli
-- Yanlış şifre ile 401 Unauthorized
-- 5 başarısız denemede account lock
-- JWT decode edildiğinde user bilgileri çıkmalı
+- ✅ Doğru credentials ile token dönmeli
+- ✅ Yanlış şifre ile 401 Unauthorized
+- ✅ 5 başarısız denemede account lock (30 dakika)
+- ✅ JWT decode edildiğinde user bilgileri çıkmalı
+
+**Tamamlanma Notları:**
+- Auth endpoint'leri başarıyla implement edildi
+- Account lockout mekanizması çalışıyor
+- JWT token generation ve validation aktif
+- TCKN hash ile güvenli lookup sağlandı
 
 **Dependencies:** TASK-BE-005
 

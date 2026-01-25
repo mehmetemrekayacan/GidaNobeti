@@ -1,10 +1,165 @@
 """
-Seed test restaurant data
+Seed script - Docker container içinde çalıştırılacak
 """
 import asyncio
+import sys
+from pathlib import Path
+
+# Add app to path
+sys.path.insert(0, str(Path(__file__).parent))
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import AsyncSessionLocal
 from app.db.models.restaurant import Restaurant, RiskStatus
+from app.db.models.user import User, UserRole
+from app.db.models.dormitory import Dormitory
+from app.core.security import hash_tckn, hash_password, verify_password
+
+
+async def seed_dormitories():
+    """Add test dormitory"""
+    async with AsyncSessionLocal() as db:
+        from sqlalchemy import select, func
+        count_query = select(func.count(Dormitory.id))
+        result = await db.execute(count_query)
+        count = result.scalar()
+        
+        if count > 0:
+            print(f"✅ {count} dormitories already exist, skipping seed")
+            dorm_query = select(Dormitory).limit(1)
+            dorm_result = await db.execute(dorm_query)
+            dorm = dorm_result.scalar_one()
+            return dorm.id
+        
+        dormitory = Dormitory(
+            name="Isparta Erkek KYK Yurdu",
+            city="Isparta",
+            district="Merkez",
+            address="Test Adresi",
+            capacity=2000,
+            phone="02461234567",
+            latitude=37.7749,
+            longitude=30.5567,
+            is_active=True
+        )
+        
+        db.add(dormitory)
+        await db.commit()
+        await db.refresh(dormitory)
+        print(f"✅ Seeded dormitory: {dormitory.name}")
+        return dormitory.id
+
+
+async def seed_users(dorm_id: int):
+    """Add test users"""
+    async with AsyncSessionLocal() as db:
+        from sqlalchemy import select, func
+        
+        # Check for admin user specifically
+        admin_tckn_hash = hash_tckn("11111111111")
+        admin_query = select(User).where(User.tckn_hash == admin_tckn_hash)
+        admin_result = await db.execute(admin_query)
+        existing_admin = admin_result.scalar_one_or_none()
+        
+        if existing_admin:
+            print(f"✅ Admin user already exists (TCKN: 11111111111)")
+            # Verify password works
+            password_updated = False
+            if not verify_password("Admin123!", existing_admin.password_hash):
+                print("   ⚠️ Admin password hash mismatch, updating...")
+                existing_admin.password_hash = hash_password("Admin123!")
+                password_updated = True
+            
+            # Ensure admin role is correct
+            role_updated = False
+            if existing_admin.role != UserRole.DORM_MANAGER:
+                print(f"   ⚠️ Admin role is {existing_admin.role}, updating to DORM_MANAGER...")
+                existing_admin.role = UserRole.DORM_MANAGER
+                role_updated = True
+            
+            # Ensure account is active and verified
+            if not existing_admin.is_active or not existing_admin.is_verified:
+                existing_admin.is_active = True
+                existing_admin.is_verified = True
+                role_updated = True
+            
+            if password_updated or role_updated:
+                await db.commit()
+                if password_updated:
+                    print("   ✅ Admin password updated")
+                if role_updated:
+                    print("   ✅ Admin role and status updated")
+            else:
+                print("   ✅ Admin password is correct")
+                print("   ✅ Admin role is correct")
+        else:
+            print("   Creating admin user...")
+            admin_user = User(
+                dorm_id=dorm_id,
+                tckn_hash=admin_tckn_hash,
+                password_hash=hash_password("Admin123!"),
+                full_name="Yurt Müdürü",
+                email="mudur@test.com",
+                phone_number="05551111111",
+                role=UserRole.DORM_MANAGER,
+                is_active=True,
+                is_verified=True
+            )
+            db.add(admin_user)
+            await db.commit()
+            print("   ✅ Admin user created")
+        
+        # Check for student user
+        student_tckn_hash = hash_tckn("12345678901")
+        student_query = select(User).where(User.tckn_hash == student_tckn_hash)
+        student_result = await db.execute(student_query)
+        existing_student = student_result.scalar_one_or_none()
+        
+        if existing_student:
+            print(f"✅ Student user already exists (TCKN: 12345678901)")
+            password_updated = False
+            if not verify_password("Test123!", existing_student.password_hash):
+                print("   ⚠️ Student password hash mismatch, updating...")
+                existing_student.password_hash = hash_password("Test123!")
+                password_updated = True
+            
+            # Ensure account is active and verified
+            status_updated = False
+            if not existing_student.is_active or not existing_student.is_verified:
+                existing_student.is_active = True
+                existing_student.is_verified = True
+                status_updated = True
+            
+            if password_updated or status_updated:
+                await db.commit()
+                if password_updated:
+                    print("   ✅ Student password updated")
+                if status_updated:
+                    print("   ✅ Student account status updated")
+            else:
+                print("   ✅ Student password is correct")
+                print("   ✅ Student account is active and verified")
+        else:
+            print("   Creating student user...")
+            student_user = User(
+                dorm_id=dorm_id,
+                tckn_hash=student_tckn_hash,
+                password_hash=hash_password("Test123!"),
+                full_name="Ahmet Yılmaz",
+                email="ahmet.yilmaz@test.com",
+                phone_number="05551234567",
+                room_number="A-205",
+                role=UserRole.STUDENT,
+                is_active=True,
+                is_verified=True
+            )
+            db.add(student_user)
+            await db.commit()
+            print("   ✅ Student user created")
+        
+        print("\n📋 Test Kullanıcıları:")
+        print("   Admin: TCKN=11111111111, Password=Admin123!")
+        print("   Student: TCKN=12345678901, Password=Test123!")
 
 
 async def seed_restaurants():
@@ -171,5 +326,17 @@ async def seed_restaurants():
         print(f"✅ Seeded {len(restaurants)} test restaurants")
 
 
+async def seed_all():
+    """Seed all test data"""
+    print("🌱 Starting seed process...")
+    
+    dorm_id = await seed_dormitories()
+    await seed_restaurants()
+    if dorm_id:
+        await seed_users(dorm_id)
+    
+    print("✅ Seed process completed!")
+
+
 if __name__ == "__main__":
-    asyncio.run(seed_restaurants())
+    asyncio.run(seed_all())

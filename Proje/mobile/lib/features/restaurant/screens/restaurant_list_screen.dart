@@ -104,28 +104,28 @@ class _RestaurantListViewState extends State<_RestaurantListView> {
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
-                      if (state.filterDistrict != null)
+                      if (state.activeDistrict != null)
                         Chip(
-                          label: Text('Bölge: ${state.filterDistrict}'),
+                          label: Text('Bölge: ${state.activeDistrict}'),
                           onDeleted: () => context
                               .read<RestaurantBloc>()
                               .add(const RestaurantClearFilters()),
                           deleteIcon: const Icon(Icons.close, size: 18),
                         ),
-                      if (state.filterPlatform != null) ..[
+                      if (state.activePlatform != null) ...[
                         const SizedBox(width: 8),
                         Chip(
-                          label: Text('Platform: ${state.filterPlatform}'),
+                          label: Text('Platform: ${state.activePlatform}'),
                           onDeleted: () => context
                               .read<RestaurantBloc>()
                               .add(const RestaurantClearFilters()),
                           deleteIcon: const Icon(Icons.close, size: 18),
                         ),
                       ],
-                      if (state.filterRiskStatus != null) ..[
+                      if (state.activeRiskStatus != null) ...[
                         const SizedBox(width: 8),
                         Chip(
-                          label: Text(_getRiskLabel(state.filterRiskStatus!)),
+                          label: Text(_getRiskLabel(state.activeRiskStatus!)),
                           onDeleted: () => context
                               .read<RestaurantBloc>()
                               .add(const RestaurantClearFilters()),
@@ -233,6 +233,9 @@ class _RestaurantListViewState extends State<_RestaurantListView> {
           return const SizedBox();
         },
       ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -289,7 +292,7 @@ class _FilterBottomSheet extends StatelessWidget {
                 label: const Text('Güvenli'),
                 avatar: const Icon(Icons.check_circle, size: 18, color: Colors.green),
                 onSelected: (selected) {
-                  bloc.add(const RestaurantFilterByRiskStatus('SAFE'));
+                  bloc.add(const RestaurantFilterByRiskStatus(RiskStatus.safe));
                   Navigator.pop(context);
                 },
               ),
@@ -297,7 +300,7 @@ class _FilterBottomSheet extends StatelessWidget {
                 label: const Text('Takipte'),
                 avatar: const Icon(Icons.warning, size: 18, color: Colors.orange),
                 onSelected: (selected) {
-                  bloc.add(const RestaurantFilterByRiskStatus('WATCHLIST'));
+                  bloc.add(const RestaurantFilterByRiskStatus(RiskStatus.watchlist));
                   Navigator.pop(context);
                 },
               ),
@@ -305,7 +308,7 @@ class _FilterBottomSheet extends StatelessWidget {
                 label: const Text('Riskli'),
                 avatar: const Icon(Icons.flag, size: 18, color: Colors.red),
                 onSelected: (selected) {
-                  bloc.add(const RestaurantFilterByRiskStatus('RED_FLAG'));
+                  bloc.add(const RestaurantFilterByRiskStatus(RiskStatus.redFlag));
                   Navigator.pop(context);
                 },
               ),
@@ -313,7 +316,7 @@ class _FilterBottomSheet extends StatelessWidget {
                 label: const Text('Kara Liste'),
                 avatar: const Icon(Icons.block, size: 18),
                 onSelected: (selected) {
-                  bloc.add(const RestaurantFilterByRiskStatus('BLACKLISTED'));
+                  bloc.add(const RestaurantFilterByRiskStatus(RiskStatus.blacklisted));
                   Navigator.pop(context);
                 },
               ),

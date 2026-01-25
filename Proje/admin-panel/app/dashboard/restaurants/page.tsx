@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui';
 import { Search, AlertTriangle, CheckCircle, XCircle, Edit2, Filter } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
 interface Restaurant {
   id: number;
@@ -66,13 +67,46 @@ const mockRestaurants: Restaurant[] = [
 ];
 
 export default function RestaurantsPage() {
-  const [restaurants, setRestaurants] = useState<Restaurant[]>(mockRestaurants);
-  const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>(mockRestaurants);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [riskFilter, setRiskFilter] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'complaints' | 'orders' | 'name'>('complaints');
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch restaurants from API
+  useEffect(() => {
+    const fetchRestaurants = async () => {
+      try {
+        const response = await apiClient.get('/restaurants', {
+          params: { limit: 100 }
+        });
+        
+        // Transform API response to local format
+        const transformed = response.data.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          riskStatus: r.current_risk_status,
+          totalOrders: r.total_orders || 0,
+          totalComplaints: r.total_complaints || 0,
+          riskReason: r.risk_reason,
+          platformOrigin: r.platform_origin,
+        }));
+        
+        setRestaurants(transformed);
+        setLoading(false);
+      } catch (err: any) {
+        console.error('Failed to fetch restaurants:', err);
+        setError(err.response?.data?.detail || 'Restoranlar yüklenirken hata oluştu');
+        setLoading(false);
+      }
+    };
+
+    fetchRestaurants();
+  }, []);
 
   // Search & Filter
   useEffect(() => {
@@ -138,18 +172,31 @@ export default function RestaurantsPage() {
     setShowEditModal(true);
   };
 
-  const handleSaveRisk = (newStatus: Restaurant['riskStatus'], reason: string) => {
+  const handleSaveRisk = async (newStatus: Restaurant['riskStatus'], reason: string) => {
     if (!selectedRestaurant) return;
 
-    // Mock update - Backend API çağrısı buraya gelecek
-    const updated = restaurants.map((r) =>
-      r.id === selectedRestaurant.id
-        ? { ...r, riskStatus: newStatus, riskReason: reason }
-        : r
-    );
-    setRestaurants(updated);
-    setShowEditModal(false);
-    setSelectedRestaurant(null);
+    try {
+      // Update via API
+      await apiClient.put(`/admin/restaurants/${selectedRestaurant.id}/risk-status`, null, {
+        params: {
+          new_status: newStatus,
+          reason: reason || undefined
+        }
+      });
+
+      // Update local state
+      const updated = restaurants.map((r) =>
+        r.id === selectedRestaurant.id
+          ? { ...r, riskStatus: newStatus, riskReason: reason }
+          : r
+      );
+      setRestaurants(updated);
+      setShowEditModal(false);
+      setSelectedRestaurant(null);
+    } catch (err: any) {
+      console.error('Failed to update restaurant risk status:', err);
+      alert('Risk durumu güncellenirken hata oluştu: ' + (err.response?.data?.detail || err.message));
+    }
   };
 
   const stats = {
@@ -169,6 +216,19 @@ export default function RestaurantsPage() {
           Risk durumlarını yönetin ve restoranları inceleyin
         </p>
       </div>
+
+      {loading && (
+        <div className="text-center py-8 text-gray-600">Yükleniyor...</div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+          Hata: {error}
+        </div>
+      )}
+
+      {!loading && !error && (
+        <>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -327,6 +387,8 @@ export default function RestaurantsPage() {
           }}
           onSave={handleSaveRisk}
         />
+      )}
+        </>
       )}
     </div>
   );

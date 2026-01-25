@@ -7,19 +7,48 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui';
 import { isAuthenticated } from '@/lib/auth';
+import { apiClient } from '@/lib/api-client';
 import { TrendingUp, Users, AlertCircle, UtensilsCrossed } from 'lucide-react';
+
+interface DashboardStats {
+  period: string;
+  total_orders: number;
+  total_students: number;
+  total_incidents: number;
+  top_restaurants: Array<{ name: string; order_count: number }>;
+  incidents_by_restaurant: Array<{ restaurant: string; incident_count: number }>;
+  daily_breakdown: Array<{ date: string; orders: number; incidents: number }>;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check authentication
     if (!isAuthenticated()) {
       router.push('/login');
-    } else {
-      setLoading(false);
+      return;
     }
+
+    // Fetch dashboard statistics
+    const fetchStats = async () => {
+      try {
+        const response = await apiClient.get('/admin/dashboard/statistics', {
+          params: { period: 'last_7_days' }
+        });
+        setStats(response.data);
+        setLoading(false);
+      } catch (err: any) {
+        console.error('Failed to fetch dashboard stats:', err);
+        setError(err.response?.data?.detail || 'Veri yüklenirken hata oluştu');
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
   }, [router]);
 
   if (loading) {
@@ -30,36 +59,46 @@ export default function DashboardPage() {
     );
   }
 
-  // Mock data - Backend bağlandığında gerçek data gelecek
-  const stats = [
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-red-600">Hata: {error}</div>
+      </div>
+    );
+  }
+
+  // Calculate risk restaurant count from stats
+  const riskyRestaurantCount = stats?.incidents_by_restaurant?.length || 0;
+
+  const statsCards = [
     {
       title: 'Toplam Sipariş',
-      value: '1,234',
-      change: '+12%',
+      value: stats?.total_orders?.toLocaleString('tr-TR') || '0',
+      change: '+12%', // TODO: Calculate from daily breakdown
       icon: TrendingUp,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
     },
     {
       title: 'Aktif Öğrenci',
-      value: '456',
-      change: '+5%',
+      value: stats?.total_students?.toLocaleString('tr-TR') || '0',
+      change: '+5%', // TODO: Calculate from daily breakdown
       icon: Users,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
     },
     {
       title: 'Toplam Vaka',
-      value: '23',
-      change: '-8%',
+      value: stats?.total_incidents?.toLocaleString('tr-TR') || '0',
+      change: '-8%', // TODO: Calculate from daily breakdown
       icon: AlertCircle,
       color: 'text-red-600',
       bgColor: 'bg-red-50',
     },
     {
       title: 'Riskli Restoran',
-      value: '7',
-      change: '+2',
+      value: riskyRestaurantCount.toString(),
+      change: '+2', // TODO: Calculate trend
       icon: UtensilsCrossed,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
@@ -76,7 +115,7 @@ export default function DashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat) => (
+        {statsCards.map((stat) => (
           <Card key={stat.title} className="hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>

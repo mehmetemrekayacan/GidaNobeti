@@ -63,6 +63,7 @@ class RestaurantListItem(BaseModel):
     current_risk_status: RiskStatus
     avg_rating: Optional[float]
     total_orders: int
+    total_complaints: int = 0
     is_active: bool
 
 
