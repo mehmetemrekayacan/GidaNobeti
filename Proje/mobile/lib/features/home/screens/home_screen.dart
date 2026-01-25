@@ -133,6 +133,15 @@ class HomeScreen extends StatelessWidget {
             children: [
               _buildQuickActionCard(
                 context,
+                icon: Icons.restaurant_menu,
+                title: 'Restoranlar',
+                color: Colors.green,
+                onTap: () {
+                  Navigator.pushNamed(context, '/restaurants');
+                },
+              ),
+              _buildQuickActionCard(
+                context,
                 icon: Icons.restaurant,
                 title: 'Riskli Restoranlar',
                 color: Colors.red,

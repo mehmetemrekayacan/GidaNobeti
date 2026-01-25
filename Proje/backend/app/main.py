@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.api.v1.auth import router as auth_router
+from app.api.v1.restaurants import router as restaurants_router
 from app.db.session import engine
 import logging
 
@@ -34,6 +35,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(auth_router, prefix="/v1")
+app.include_router(restaurants_router, prefix="/v1")
 
 
 # Health Check Endpoint (minimal overhead)

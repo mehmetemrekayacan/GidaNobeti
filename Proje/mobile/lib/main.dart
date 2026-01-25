@@ -7,6 +7,7 @@ import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/register_screen.dart';
 import 'features/home/screens/home_screen.dart';
+import 'features/restaurant/screens/restaurant_list_screen.dart';
 
 void main() {
   // Setup BLoC observer for debugging
@@ -44,6 +45,7 @@ class MyApp extends StatelessWidget {
           '/login': (context) => const LoginScreen(),
           '/register': (context) => const RegisterScreen(),
           '/home': (context) => const HomeScreen(),
+          '/restaurants': (context) => const RestaurantListScreen(),
         },
       ),
     );
