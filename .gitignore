@@ -99,3 +99,7 @@ temp_uploads/
 # Backup files
 *.bak
 *.backup
+
+# Resmi ve Yazılım Dokümanları (GitHub'a pushlanmaz)
+ResmiDOC/
+YazilimDOC/
