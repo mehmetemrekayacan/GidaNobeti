@@ -2,6 +2,61 @@
 
 ## ✅ Çözülen Sorunlar
 
+### 0. OCR (Sipariş Yükleme) İlk Kurulum
+**Gereksinim:** `POST /v1/orders/upload` endpoint'i EasyOCR kullanır. İlk kez çalıştırmadan önce paketleri yükleyin.
+
+**Kurulum (Docker container içinde, ~5-10 dk):**
+```bash
+docker exec -it gidanobeti_api pip install easyocr==1.7.1 pillow==10.2.0 numpy==1.26.4
+```
+
+**Not:** EasyOCR torch/torchvision indirir (~1GB+). Kurulum uzun sürebilir. Tamamlandıktan sonra container'ı yeniden başlatın:
+```bash
+docker-compose restart api
+```
+
+**Alternatif (image rebuild):**
+```bash
+docker-compose build api
+docker-compose up -d
+```
+
+### 0.1 Order Upload 500 Internal Server Error
+**Sorun:** `POST /v1/orders/upload` çağrısında 500 hatası alınıyor.
+
+**Debug (DEBUG=True iken):** Response body'de artık hata detayı döner:
+```json
+{
+  "detail": "hata mesajı",
+  "type": "ExceptionTipi",
+  "traceback": ["..."]
+}
+```
+
+**Log kontrolü:**
+```bash
+docker logs gidanobeti_api --tail 100
+```
+
+**Yapılan iyileştirmeler:**
+- Global exception handler: DEBUG modunda gerçek hata mesajı döner
+- `item_name` 255 karakter sınırı (DB constraint)
+- Parser: OCR'ın ₺ yerine € okuması desteği
+- Parser: O/0, l/1 karışıklığı düzeltme (156,OOt → 156.00)
+- Parser: "Toplam:" + sonraki satır çok satırlı format desteği
+- Parser: Sipariş Kodu, Müşteri Bilgisi vb. fiş başlıklarını restoran adından hariç tutma
+- Parser: unit_price overflow önleme (telefon numarası yanlış parse)
+- Restaurant find/create hataları artık 500'e yol açmaz (fallback: restaurant=None)
+
+### 0.2 Order Upload 401 Unauthorized
+**Sorun:** `POST /v1/orders/upload` 401 dönüyor.
+
+**Çözüm:** Önce login olup JWT token alın, Swagger'da **Authorize** ile token girin:
+1. `POST /v1/auth/login` → TCKN: `12345678901`, Password: `Test123!`
+2. Response'tan `access_token` kopyala
+3. Swagger **Authorize** → Value: `Bearer <token>` veya sadece `<token>`
+4. Order Upload tekrar dene
+
 ### 1. Backend Seed Script Hatası
 **Sorun:** `ModuleNotFoundError: No module named 'sqlalchemy'`
 

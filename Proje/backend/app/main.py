@@ -2,13 +2,15 @@
 FastAPI Application Entry Point
 Optimized for performance with minimal overhead.
 """
-from fastapi import FastAPI
+import traceback
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.api.v1.auth import router as auth_router
 from app.api.v1.restaurants import router as restaurants_router
 from app.api.v1.admin import router as admin_router
+from app.api.v1.orders import router as orders_router
 from app.db.session import engine
 import logging
 
@@ -34,10 +36,32 @@ app.add_middleware(
 )
 
 
+# Global exception handler - DEBUG modunda detaylı hata döndür
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Yakalanmamış hataları logla ve DEBUG modunda detay döndür."""
+    tb = traceback.format_exc()
+    logger.exception("Unhandled exception: %s", exc)
+    if settings.DEBUG:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": str(exc),
+                "type": type(exc).__name__,
+                "traceback": tb.split("\n"),
+            },
+        )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error"},
+    )
+
+
 # Include Routers
 app.include_router(auth_router, prefix="/v1")
 app.include_router(restaurants_router, prefix="/v1")
 app.include_router(admin_router, prefix="/v1")
+app.include_router(orders_router, prefix="/v1")
 
 
 # Health Check Endpoint (minimal overhead)
