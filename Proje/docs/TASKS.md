@@ -262,26 +262,31 @@ Kullanıcı girişi ve JWT token dönme.
 
 #### TASK-BE-007: JWT Middleware & Permissions 🟡 P1
 **Süre:** 3 saat  
+**Gerçek Süre:** ~1 saat  
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 JWT token doğrulama middleware ve role-based access control.
 
 **Checklist:**
-- [ ] `app/core/deps.py` - `get_current_user` dependency
-- [ ] JWT token parse et (header'dan)
-- [ ] Token expiry kontrolü
+- [x] `app/core/deps.py` - `get_current_user` dependency
+- [x] JWT token parse et (header'dan)
+- [x] Token expiry kontrolü
 - [ ] Blacklist kontrolü (Redis - future)
-- [ ] User role çıkar (STUDENT, DORM_MANAGER, etc.)
-- [ ] Permission decorator: `@require_role("STUDENT")`
-- [ ] Unauthorized 401 error handler
-- [ ] Forbidden 403 error handler
+- [x] User role çıkar (STUDENT, DORM_MANAGER, etc.)
+- [x] Permission dependency: `require_roles()`, `require_admin`, `require_student`
+- [x] Unauthorized 401 error handler
+- [x] Forbidden 403 error handler
 
 **Acceptance Criteria:**
 - Protected endpoint'lere token olmadan istek 401 dönmeli
 - Yanlış role ile istek 403 dönmeli
 - Expired token ile 401 dönmeli
+
+**Tamamlanma Notları:**
+- Admin endpoint'leri (dashboard, risk-status) require_admin ile korundu
+- require_roles(UserRole.X, UserRole.Y) ile esnek rol kontrolü
 
 **Dependencies:** TASK-BE-006
 
@@ -1912,6 +1917,9 @@ Bu dosya **yaşayan bir döküman**dır. Her task tamamlandığında:
 
 ### 🚧 Devam Eden
 - [TASK-BE-014] Risk Analysis Engine (TASK-BE-015 ile kısmen karşılandı)
+
+### ✅ Tamamlanan (8 Şubat)
+- TASK-BE-007: JWT Middleware & Permissions
 
 ### ✅ Tamamlanan (4 Şubat)
 - TASK-BE-012: Order History Endpoint

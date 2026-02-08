@@ -136,6 +136,37 @@ docker exec -it gidanobeti_api python seed_restaurants.py
 - Response'da `user.role` alanının `STUDENT` olduğunu kontrol edin
 - Mobile app'te de aynı bilgilerle login deneyin
 
+### 5.1 TASK-BE-007: JWT Middleware & Permissions Testi
+**Amaç:** Admin endpoint'lerin token ve rol kontrolü doğru çalışıyor mu?
+
+**Test Adımları:**
+
+1. **Token olmadan Admin Dashboard (401 beklenir):**
+   - `GET http://localhost:8000/v1/admin/dashboard/statistics` isteği at (Authorization header YOK)
+   - **Beklenen:** 401 Unauthorized, `"detail": "Authentication required"`
+
+2. **Student token ile Admin Dashboard (403 beklenir):**
+   - `POST /v1/auth/login` → TCKN: `12345678901`, Password: `Test123!` (Student)
+   - Token'ı kopyala, `GET /v1/admin/dashboard/statistics` isteğinde `Authorization: Bearer <token>` ekle
+   - **Beklenen:** 403 Forbidden, `"detail": "Bu işlem için yetkiniz yok..."`
+
+3. **Admin token ile Admin Dashboard (200 beklenir):**
+   - `POST /v1/auth/login` → TCKN: `11111111111`, Password: `Admin123!` (DORM_MANAGER)
+   - Token ile `GET /v1/admin/dashboard/statistics` isteği at
+   - **Beklenen:** 200 OK, JSON istatistik verisi
+
+4. **Admin token ile Risk Güncelleme (200 beklenir):**
+   - Admin token ile `PUT /v1/admin/restaurants/1/risk-status?new_status=WATCHLIST&reason=Test` isteği at
+   - **Beklenen:** 200 OK, `"success": true`
+
+5. **Expired token ile (401 beklenir):**
+   - Eski veya geçersiz token ile herhangi bir protected endpoint'e istek at
+   - **Beklenen:** 401 Unauthorized, `"detail": "Invalid or expired token"`
+
+**Swagger ile Hızlı Test:**
+- `http://localhost:8000/docs` → Authorize → Admin token gir → Admin endpoint'leri dene
+- Authorize'dan token'ı sil → Admin endpoint'i dene → 401 dönmeli
+
 ### 6. Mobile App Çalıştırma
 **Sorun:** Mobile app nasıl çalıştırılır?
 

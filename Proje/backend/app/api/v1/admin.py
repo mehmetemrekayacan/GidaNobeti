@@ -1,5 +1,5 @@
 """
-Admin API Endpoints - Dashboard & Management
+Admin API Endpoints - Dashboard & Management (TASK-BE-007: Auth required)
 """
 from datetime import datetime, timedelta
 from typing import Optional
@@ -12,6 +12,7 @@ from app.db.models.restaurant import Restaurant, RiskStatus
 from app.db.models.order import Order
 from app.db.models.user import User
 from app.db.models.incident import HealthIncident
+from app.core.deps import require_admin
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 @router.get("/dashboard/statistics")
 async def get_dashboard_statistics(
     period: str = Query("last_7_days", description="Time period: last_7_days, last_30_days"),
+    current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -139,6 +141,7 @@ async def update_restaurant_risk_status(
     restaurant_id: int,
     new_status: RiskStatus = Query(..., description="New risk status"),
     reason: Optional[str] = Query(None, description="Reason for status change"),
+    current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
