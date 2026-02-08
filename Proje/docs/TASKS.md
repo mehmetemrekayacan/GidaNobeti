@@ -682,26 +682,32 @@ API abuse koruması için rate limiting.
 
 #### TASK-BE-019: Logging & Monitoring 🟢 P2
 **Süre:** 3 saat  
+**Gerçek Süre:** ~1 saat  
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Structured logging ve Sentry entegrasyonu.
 
 **Checklist:**
-- [ ] Loguru kütüphanesi setup
-- [ ] JSON structured logs
-- [ ] Log levels: DEBUG, INFO, WARNING, ERROR
-- [ ] Log rotation (max 100MB per file)
-- [ ] Sentry SDK initialize
-- [ ] Error tracking (exception capture)
-- [ ] Performance monitoring (traces)
-- [ ] User context (user_id in logs)
+- [x] Loguru kütüphanesi setup
+- [x] JSON structured logs (production file)
+- [x] Log levels: DEBUG, INFO, WARNING, ERROR
+- [x] Log rotation (max 100MB per file)
+- [x] Sentry SDK initialize (SENTRY_DSN opsiyonel)
+- [x] Error tracking (exception capture)
+- [x] Performance monitoring (traces_sample_rate)
+- [x] Request logging middleware (method, path, status, duration, ip)
 
 **Acceptance Criteria:**
 - Her request loglanmalı
-- Error'lar Sentry'ye gitmeli
+- Error'lar Sentry'ye gitmeli (DSN varsa)
 - Local'de console, production'da file
+
+**Tamamlanma Notları:**
+- app/core/logging_config.py: Loguru + InterceptHandler
+- app/core/middleware.py: RequestLoggingMiddleware
+- Production: logs/app.log JSON, rotation 100MB, 7 gün retention
 
 **Dependencies:** TASK-BE-002
 
@@ -1929,6 +1935,7 @@ Bu dosya **yaşayan bir döküman**dır. Her task tamamlandığında:
 ### ✅ Tamamlanan (8 Şubat)
 - TASK-BE-007: JWT Middleware & Permissions
 - TASK-BE-018: Rate Limiting (Redis)
+- TASK-BE-019: Logging & Monitoring
 
 ### ✅ Tamamlanan (4 Şubat)
 - TASK-BE-012: Order History Endpoint

@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     
+    # Sentry (TASK-BE-019) - opsiyonel, boşsa devre dışı
+    SENTRY_DSN: str | None = None
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

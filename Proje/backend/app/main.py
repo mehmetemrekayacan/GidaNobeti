@@ -8,18 +8,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from loguru import logger
 
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.logging_config import setup_logging
+from app.core.middleware import RequestLoggingMiddleware
 from app.api.v1.auth import router as auth_router
 from app.api.v1.restaurants import router as restaurants_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.incidents import router as incidents_router
 from app.db.session import engine
-import logging
 
-logger = logging.getLogger(__name__)
+# Sentry (TASK-BE-019) - SENTRY_DSN varsa aktif
+if settings.SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT,
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+        integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+        send_default_pii=False,
+    )
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -43,6 +57,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request Logging (TASK-BE-019)
+app.add_middleware(RequestLoggingMiddleware)
 
 
 # Global exception handler - DEBUG modunda detaylı hata döndür
@@ -104,23 +121,27 @@ async def root():
 @app.on_event("startup")
 async def startup_event():
     """Execute on application startup."""
-    print(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} started")
-    print(f"📍 Environment: {settings.ENVIRONMENT}")
-    print(f"🔍 Debug Mode: {settings.DEBUG}")
-    
+    setup_logging()
+    logger.info(
+        "Starting {} v{} | env={} debug={}",
+        settings.APP_NAME,
+        settings.APP_VERSION,
+        settings.ENVIRONMENT,
+        settings.DEBUG,
+    )
+
     # Test database connection
     try:
         from app.db.models.base import Base
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        print("✅ Database connection successful and tables created/verified")
+        logger.info("Database connection successful and tables created/verified")
     except Exception as e:
-        print(f"⚠️ Database initialization warning: {str(e)}")
-        logger.warning(f"Database initialization: {str(e)}")
+        logger.warning("Database initialization warning: {}", str(e))
 
 
 # Shutdown Event
 @app.on_event("shutdown")
 async def shutdown_event():
     """Execute on application shutdown."""
-    print(f"👋 {settings.APP_NAME} shutting down...")
+    logger.info("{} shutting down", settings.APP_NAME)
