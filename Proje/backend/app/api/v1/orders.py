@@ -4,7 +4,8 @@ Order API - Sipariş yükleme (TASK-BE-011) & Geçmiş (TASK-BE-012)
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query, Request
+from app.core.limiter import limiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
@@ -115,7 +116,9 @@ async def get_my_order_history(
 
 
 @router.post("/upload", response_model=OrderUploadResponse)
+@limiter.limit("10/hour")
 async def upload_receipt(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

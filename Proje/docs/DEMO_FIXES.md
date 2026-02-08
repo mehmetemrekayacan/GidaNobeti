@@ -167,6 +167,42 @@ docker exec -it gidanobeti_api python seed_restaurants.py
 - `http://localhost:8000/docs` → Authorize → Admin token gir → Admin endpoint'leri dene
 - Authorize'dan token'ı sil → Admin endpoint'i dene → 401 dönmeli
 
+### 5.2 TASK-BE-018: Rate Limiting Testi
+**Amaç:** API rate limit'lerin doğru çalıştığını doğrulamak.
+
+**Ön Hazırlık:** 
+- Docker: `docker compose build api` (slowapi yeni dependency) sonra `docker compose up -d`
+- Veya: `docker exec -it gidanobeti_api pip install slowapi` ardından container restart
+
+**Limitler:**
+| Endpoint | Limit | Test |
+|----------|-------|------|
+| POST /auth/login | 5/dk | 6. istekte 429 |
+| POST /auth/register | 5/dk | 6. istekte 429 |
+| POST /orders/upload | 10/saat | 11. istekte 429 |
+| POST /incidents/report | 3/saat | 4. istekte 429 |
+| Global (tüm API) | 100/dk | 101. istekte 429 |
+
+**Test 1: Login Rate Limit (5/dk)**
+1. Swagger: `POST /v1/auth/login` 
+2. Body: `{"tckn":"12345678901","password":"Test123!"}`
+3. **Execute** 6 kez ardışık
+4. **Beklenen:** 6. istekte 429, `"error": "Rate limit exceeded: 5 per 1 minute"`
+
+**Test 2: Incident Report Limit (3/saat)**
+1. Önce login ile token al
+2. `POST /v1/incidents/report` — 4 kez ardışık (geçerli order_id ile)
+3. **Beklenen:** 4. istekte 429
+
+**Test 3: Curl ile Hızlı Test**
+```powershell
+# 6 kez login dene (her biri ayrı istek)
+1..6 | ForEach-Object { Invoke-RestMethod -Uri "http://localhost:8000/v1/auth/login" -Method POST -ContentType "application/json" -Body '{"tckn":"12345678901","password":"Test123!"}' }
+# 6. istek 429 dönmeli
+```
+
+**Not:** Limitler IP bazlıdır. Aynı makineden farklı tarayıcı/curl aynı IP'den sayılır.
+
 ### 6. Mobile App Çalıştırma
 **Sorun:** Mobile app nasıl çalıştırılır?
 

@@ -12,8 +12,13 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first (Docker layer caching)
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# 1. PyTorch CPU-only önce (~200MB vs ~2GB) - easyocr bunu kullanır
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# 2. Diğer paketler (torch zaten kurulu, tekrar indirilmez)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 # Copy application code
 COPY . .

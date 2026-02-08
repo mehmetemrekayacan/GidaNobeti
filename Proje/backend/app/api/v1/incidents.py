@@ -4,7 +4,8 @@ Incidents API - Sağlık Vakası Bildirimi (TASK-BE-015)
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from app.core.limiter import limiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -22,7 +23,9 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/report", response_model=IncidentReportResponse)
+@limiter.limit("3/hour")
 async def report_health_incident(
+    request: Request,
     body: IncidentReportRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

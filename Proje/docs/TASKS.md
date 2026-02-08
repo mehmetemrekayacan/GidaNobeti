@@ -646,27 +646,35 @@ Admin manuel olarak restoran risk statüsünü güncelleyebilir.
 
 #### TASK-BE-018: Rate Limiting (Redis) 🟡 P1
 **Süre:** 4 saat  
+**Gerçek Süre:** ~1.5 saat  
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 API abuse koruması için rate limiting.
 
 **Checklist:**
-- [ ] `slowapi` veya `fastapi-limiter` kütüphanesi
-- [ ] Redis backend
-- [ ] Rate limits (SPEC'teki):
-  - [ ] `/auth/login`: 5 req/min
-  - [ ] `/orders/upload`: 10 req/hour
-  - [ ] `/incidents/report`: 3 req/hour
-  - [ ] Global: 100 req/min per IP
-- [ ] 429 Too Many Requests response
-- [ ] Header'da limit bilgisi (X-RateLimit-Remaining)
+- [x] `slowapi` kütüphanesi
+- [x] Redis backend (storage_uri)
+- [x] Rate limits (SPEC'teki):
+  - [x] `/auth/login`: 5 req/min
+  - [x] `/auth/register`: 5 req/min
+  - [x] `/orders/upload`: 10 req/hour
+  - [x] `/incidents/report`: 3 req/hour
+  - [x] Global: 100 req/min per IP
+- [x] 429 Too Many Requests response
+- [ ] Header'da limit bilgisi (FastAPI uyumluluk için headers_enabled=False)
 
 **Acceptance Criteria:**
 - Limit aşıldığında 429 dönmeli
 - Redis'te counter tutulmalı
 - Farklı endpoint'ler farklı limitlerde
+
+**Tamamlanma Notları:**
+- app/core/limiter.py: Limiter Redis + in_memory_fallback
+- Login, Register, Upload, Report endpoint'lerine özel limitler
+- Auth: request/body parametreleri slowapi uyumlu (request=Request, body=LoginRequest)
+- Dockerfile: PyTorch CPU-only + pip cache (build hızlandırma)
 
 **Dependencies:** TASK-BE-001
 
@@ -1920,6 +1928,7 @@ Bu dosya **yaşayan bir döküman**dır. Her task tamamlandığında:
 
 ### ✅ Tamamlanan (8 Şubat)
 - TASK-BE-007: JWT Middleware & Permissions
+- TASK-BE-018: Rate Limiting (Redis)
 
 ### ✅ Tamamlanan (4 Şubat)
 - TASK-BE-012: Order History Endpoint

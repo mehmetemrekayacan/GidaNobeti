@@ -1,11 +1,12 @@
 """
 Authentication Endpoints - Register & Login
 """
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import timedelta, datetime, timezone
 from app.db.session import get_db
+from app.core.limiter import limiter
 from app.db.models.user import User, UserRole
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse
 from app.core.security import hash_tckn, hash_password, verify_password, create_access_token
@@ -15,8 +16,10 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
 async def register(
-    request: RegisterRequest,
+    request: Request,
+    body: RegisterRequest,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -31,7 +34,7 @@ async def register(
     """
     try:
         # Hash TCKN for lookup
-        tckn_hash_value = hash_tckn(request.tckn)
+        tckn_hash_value = hash_tckn(body.tckn)
         
         # Check if TCKN already exists
         stmt = select(User).where(User.tckn_hash == tckn_hash_value)
@@ -45,8 +48,8 @@ async def register(
             )
         
         # Check email uniqueness if provided
-        if request.email:
-            stmt = select(User).where(User.email == request.email)
+        if body.email:
+            stmt = select(User).where(User.email == body.email)
             result = await db.execute(stmt)
             existing_email = result.scalar_one_or_none()
             
@@ -59,12 +62,12 @@ async def register(
         # Create new user
         new_user = User(
             tckn_hash=tckn_hash_value,
-            password_hash=hash_password(request.password),
-            full_name=request.full_name,
-            email=request.email,
-            phone_number=request.phone,
-            dorm_id=request.dorm_id,
-            room_number=request.room_number,
+            password_hash=hash_password(body.password),
+            full_name=body.full_name,
+            email=body.email,
+            phone_number=body.phone,
+            dorm_id=body.dorm_id,
+            room_number=body.room_number,
             role=UserRole.STUDENT,
             is_active=True,
             is_verified=False  # Requires verification later
@@ -102,8 +105,10 @@ async def register(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("5/minute")
 async def login(
-    request: LoginRequest,
+    request: Request,
+    body: LoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -119,7 +124,7 @@ async def login(
     """
     try:
         # Hash TCKN for lookup
-        tckn_hash_value = hash_tckn(request.tckn)
+        tckn_hash_value = hash_tckn(body.tckn)
 
         # Find user
         stmt = select(User).where(User.tckn_hash == tckn_hash_value)
@@ -146,7 +151,7 @@ async def login(
                 await db.commit()
 
         # Verify password
-        if not verify_password(request.password, user.password_hash):
+        if not verify_password(body.password, user.password_hash):
             # Increment login attempts
             user.login_attempts += 1
 

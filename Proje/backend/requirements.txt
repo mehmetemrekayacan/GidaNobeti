@@ -25,6 +25,9 @@ numpy==1.26.4
 # Caching & Queue
 redis==5.0.1
 
+# Rate Limiting (TASK-BE-018)
+slowapi>=0.1.9
+
 # Utils
 python-dotenv==1.0.0
 loguru==0.7.2
