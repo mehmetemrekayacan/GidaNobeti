@@ -1,8 +1,8 @@
 # ✅ SİPARİŞ TAKİP UYGULAMASI - DETAYLI GÖREV LİSTESİ (TASKS)
 
 **Proje:** Sipariş Takip Uygulaması | Yurt Gıda Güvenliği ve Kapı Düzeni Sistemi  
-**Son Güncelleme:** 3 Şubat 2026  
-**Durum:** 🚧 Demo Aşamasında | Order Upload ✅ Tamamlandı
+**Son Güncelleme:** 8 Şubat 2026  
+**Durum:** 🚧 Demo Aşamasında | Order History + Health Incident ✅ Tamamlandı
 
 ---
 
@@ -441,27 +441,33 @@ Fiş yükleme ve OCR processing ana endpoint.
 
 #### TASK-BE-012: Order History Endpoint 🟡 P1
 **Süre:** 3 saat  
+**Gerçek Süre:** ~1 saat  
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Kullanıcının geçmiş siparişlerini listeleme.
 
 **Checklist:**
-- [ ] `GET /v1/orders/my-history` endpoint
-- [ ] Auth required (JWT)
-- [ ] Pagination (page, limit params)
-- [ ] Filter by date range (start_date, end_date)
-- [ ] Filter by restaurant_id
-- [ ] Sort by declared_at DESC (en yeni önce)
-- [ ] Include restaurant bilgisi (JOIN)
-- [ ] Include order_items (nested)
-- [ ] Response: total count + paginated data
+- [x] `GET /v1/orders/my-history` endpoint
+- [x] Auth required (JWT)
+- [x] Pagination (page, limit params)
+- [x] Filter by date range (start_date, end_date)
+- [x] Filter by restaurant_id
+- [x] Sort by declared_at DESC (en yeni önce)
+- [x] Include restaurant bilgisi (JOIN)
+- [x] Include order_items (nested)
+- [x] Response: total count + paginated data
 
 **Acceptance Criteria:**
 - Sadece kendi siparişlerini görmeli (user_id filter)
 - Empty result için boş array dönmeli
 - Page 2, 3 düzgün çalışmalı
+
+**Tamamlanma Notları:**
+- OrderHistoryListResponse schema ile sayfalı response
+- selectinload ile restaurant + items eager load
+- Query params: page, limit, start_date, end_date, restaurant_id
 
 **Dependencies:** TASK-BE-011
 
@@ -532,27 +538,34 @@ Otomatik risk statüsü güncelleme algoritması.
 
 #### TASK-BE-015: Health Incident Report Endpoint 🟡 P1
 **Süre:** 4 saat  
+**Gerçek Süre:** ~1.5 saat  
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Öğrencinin sağlık sorunu bildirmesi.
 
 **Checklist:**
-- [ ] `POST /v1/incidents/report` endpoint
-- [ ] Auth required (JWT)
-- [ ] Request: suspected_order_id, symptoms, severity_level
-- [ ] Validation: order öğrenciye ait mi?
-- [ ] HealthIncident kaydı oluştur
-- [ ] Restaurant total_complaints artır (trigger veya manual)
-- [ ] Risk service çağır (otomatik risk check)
+- [x] `POST /v1/incidents/report` endpoint
+- [x] Auth required (JWT)
+- [x] Request: suspected_order_id, symptoms, severity_level
+- [x] Validation: order öğrenciye ait mi?
+- [x] HealthIncident kaydı oluştur
+- [x] Restaurant total_complaints artır (trigger veya manual)
+- [x] Risk service çağır (otomatik risk check)
 - [ ] Yurt müdürüne bildirim (email - future)
-- [ ] Response: incident_id, next_steps
+- [x] Response: incident_id, next_steps
 
 **Acceptance Criteria:**
 - Postman'den test edilebilmeli
 - Risk otomatik güncellenmeli (threshold geçerse)
 - Başka öğrencinin siparişi için şikayet edilemez
+
+**Tamamlanma Notları:**
+- risk_service.py: Otomatik risk güncelleme (24s 3+ → RED_FLAG, 2 → WATCHLIST, oran %5 → WATCHLIST)
+- Semptom min 10 karakter validasyonu
+- severity_level 1-5 aralığı
+- Ciddiyet >=4 için "acil servis" önerisi next_steps'te
 
 **Dependencies:** TASK-BE-012
 
@@ -1898,7 +1911,11 @@ Bu dosya **yaşayan bir döküman**dır. Her task tamamlandığında:
 - [TASK-BE-002] FastAPI Scaffold (3h → 4h actual)
 
 ### 🚧 Devam Eden
-- [TASK-BE-012] Order History Endpoint (sıradaki)
+- [TASK-BE-014] Risk Analysis Engine (TASK-BE-015 ile kısmen karşılandı)
+
+### ✅ Tamamlanan (4 Şubat)
+- TASK-BE-012: Order History Endpoint
+- TASK-BE-015: Health Incident Report Endpoint
 
 ### ✅ Tamamlanan (3 Şubat)
 - TASK-BE-008: OCR Integration

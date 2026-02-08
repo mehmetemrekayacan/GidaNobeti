@@ -11,6 +11,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.restaurants import router as restaurants_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.orders import router as orders_router
+from app.api.v1.incidents import router as incidents_router
 from app.db.session import engine
 import logging
 
@@ -62,6 +63,7 @@ app.include_router(auth_router, prefix="/v1")
 app.include_router(restaurants_router, prefix="/v1")
 app.include_router(admin_router, prefix="/v1")
 app.include_router(orders_router, prefix="/v1")
+app.include_router(incidents_router, prefix="/v1")
 
 
 # Health Check Endpoint (minimal overhead)
