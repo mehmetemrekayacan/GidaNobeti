@@ -68,8 +68,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      {/* Main Content - soldan yeterli boşluk (sidebar ile başlıklar arası) */}
+      <main className="flex-1 overflow-auto px-10 py-8">
         {children}
       </main>
     </div>

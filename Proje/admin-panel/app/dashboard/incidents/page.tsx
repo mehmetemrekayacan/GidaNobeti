@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '@/components/ui';
-import { Search, Filter, Edit2, AlertTriangle, Clock, CheckCircle, XCircle, X, Stethoscope } from 'lucide-react';
+import { Search, Filter, Edit2, AlertTriangle, Clock, CheckCircle, XCircle, X, Stethoscope, Inbox } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 
 const ADMIN_NOTE_MAX_LENGTH = 2000;
@@ -143,7 +143,10 @@ export default function IncidentsPage() {
       </div>
 
       {loading && (
-        <div className="text-center py-8 text-gray-700">Yükleniyor...</div>
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+          <p className="text-gray-600">Vakalar yükleniyor...</p>
+        </div>
       )}
 
       {error && (
@@ -165,7 +168,7 @@ export default function IncidentsPage() {
                     placeholder="Öğrenci veya restoran ara..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-500"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-600"
                   />
                 </div>
               </div>
@@ -195,25 +198,25 @@ export default function IncidentsPage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                       Öğrenci
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                       Restoran
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                       Semptomlar
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                       Şiddet
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                       Durum
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                       Tarih
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                       İşlem
                     </th>
                   </tr>
@@ -221,8 +224,16 @@ export default function IncidentsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredIncidents.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                        {incidents.length === 0 ? 'Vaka bulunamadı' : 'Sonuç bulunamadı'}
+                      <td colSpan={7} className="px-6 py-16">
+                        <div className="flex flex-col items-center justify-center gap-3 text-gray-500">
+                          <Inbox className="w-12 h-12 text-gray-300" />
+                          <p className="font-medium text-gray-600">
+                            {incidents.length === 0 ? 'Henüz vaka bildirimi yok' : 'Filtreye uygun vaka bulunamadı'}
+                          </p>
+                          <p className="text-sm">
+                            {incidents.length === 0 ? 'Öğrenciler şikayet bildirdiğinde burada görünecek.' : 'Farklı filtreler deneyin.'}
+                          </p>
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -458,7 +469,7 @@ function IncidentModal({
               maxLength={ADMIN_NOTE_MAX_LENGTH}
               rows={4}
               placeholder="Yönetim notu ekleyin..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 placeholder-gray-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 placeholder-gray-600"
               aria-describedby="notes-char-count"
             />
             <p id="notes-char-count" className="sr-only">

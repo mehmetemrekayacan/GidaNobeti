@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui';
-import { Search, Filter, Download, Calendar } from 'lucide-react';
+import { Search, Filter, Download, Calendar, Package } from 'lucide-react';
 
 interface Order {
   id: number;
@@ -127,6 +128,10 @@ const mockOrders: Order[] = [
 ];
 
 export default function OrdersPage() {
+  const searchParams = useSearchParams();
+  const orderIdParam = searchParams.get('order');
+  const rowRef = useRef<HTMLTableRowElement | null>(null);
+
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>(mockOrders);
   const [searchQuery, setSearchQuery] = useState('');
@@ -144,8 +149,15 @@ export default function OrdersPage() {
   useEffect(() => {
     let filtered = orders;
 
+    // Filter by order ID (from ?order= param - incident link)
+    if (orderIdParam) {
+      filtered = filtered.filter(
+        (o) => String(o.id) === orderIdParam || o.id.toString() === orderIdParam
+      );
+    }
+
     // Search by student name or restaurant
-    if (searchQuery) {
+    if (searchQuery && !orderIdParam) {
       filtered = filtered.filter(
         (o) =>
           o.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -172,8 +184,15 @@ export default function OrdersPage() {
     }
 
     setFilteredOrders(filtered);
-    setCurrentPage(1); // Reset to first page on filter change
-  }, [searchQuery, restaurantFilter, methodFilter, startDate, endDate, orders]);
+    setCurrentPage(1);
+  }, [searchQuery, restaurantFilter, methodFilter, startDate, endDate, orders, orderIdParam]);
+
+  // Scroll to highlighted order row (runs after filter applied)
+  useEffect(() => {
+    if (orderIdParam && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [orderIdParam, filteredOrders]);
 
   // Pagination
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
@@ -244,10 +263,25 @@ export default function OrdersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Sipariş Yönetimi</h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-700 mt-1">
             Tüm öğrenci siparişlerini görüntüleyin ve analiz edin
           </p>
+          <p className="text-sm text-gray-600 mt-1">
+            Test: Vakalar sayfasında bir vakaya tıklayıp &quot;Sipariş&quot; linkine basın veya{' '}
+            <a href="/dashboard/orders?order=1" className="text-blue-600 hover:underline">
+              /dashboard/orders?order=1
+            </a>{' '}
+            ile belirli siparişe gidin.
+          </p>
         </div>
+        {orderIdParam && (
+          <a
+            href="/dashboard/orders"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            ← Tüm siparişlere dön
+          </a>
+        )}
         <button
           onClick={handleExportCSV}
           className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
@@ -371,19 +405,19 @@ export default function OrdersPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Öğrenci
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Restoran
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Tarih & Saat
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Tutar
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Yöntem
                 </th>
               </tr>
@@ -391,20 +425,42 @@ export default function OrdersPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {paginatedOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    Sonuç bulunamadı
+                  <td colSpan={5} className="px-6 py-16">
+                    <div className="flex flex-col items-center justify-center gap-3 text-gray-500">
+                      <Package className="w-12 h-12 text-gray-300" />
+                      <p className="font-medium text-gray-600">
+                        {orderIdParam
+                          ? 'Bu sipariş bulunamadı'
+                          : filteredOrders.length === 0 && orders.length === 0
+                            ? 'Henüz sipariş yok'
+                            : 'Filtreye uygun sipariş bulunamadı'}
+                      </p>
+                      <p className="text-sm">
+                        {orderIdParam
+                          ? 'Sipariş ID kontrol edin veya tüm siparişlere dönün.'
+                          : 'Farklı filtreler deneyin.'}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 paginatedOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
+                  <tr
+                    key={order.id}
+                    ref={(el) => {
+                      if (orderIdParam && String(order.id) === orderIdParam) {
+                        rowRef.current = el;
+                      }
+                    }}
+                    className={`hover:bg-gray-50 ${orderIdParam && String(order.id) === orderIdParam ? '!bg-blue-200 outline outline-2 outline-blue-500 outline-offset-[-2px]' : ''}`}
+                  >
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{order.studentName}</div>
                     </td>
                     <td className="px-6 py-4 text-gray-900">{order.restaurant}</td>
                     <td className="px-6 py-4">
                       <div className="text-gray-900">{order.date}</div>
-                      <div className="text-sm text-gray-500">{order.time}</div>
+                      <div className="text-sm text-gray-700">{order.time}</div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="font-medium text-gray-900">

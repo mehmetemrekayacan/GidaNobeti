@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui';
-import { Search, AlertTriangle, CheckCircle, XCircle, Edit2, Filter } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle, XCircle, Edit2, Filter, UtensilsCrossed } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 
 interface Restaurant {
@@ -212,13 +212,16 @@ export default function RestaurantsPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Restoran Yönetimi</h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-gray-700 mt-1">
           Risk durumlarını yönetin ve restoranları inceleyin
         </p>
       </div>
 
       {loading && (
-        <div className="text-center py-8 text-gray-600">Yükleniyor...</div>
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+          <p className="text-gray-600">Restoranlar yükleniyor...</p>
+        </div>
       )}
 
       {error && (
@@ -306,22 +309,22 @@ export default function RestaurantsPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Restoran
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Risk Durumu
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Sipariş
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Şikayet
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Platform
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   İşlem
                 </th>
               </tr>
@@ -329,8 +332,16 @@ export default function RestaurantsPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRestaurants.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    Sonuç bulunamadı
+                  <td colSpan={6} className="px-6 py-16">
+                    <div className="flex flex-col items-center justify-center gap-3 text-gray-500">
+                      <UtensilsCrossed className="w-12 h-12 text-gray-300" />
+                      <p className="font-medium text-gray-600">
+                        {restaurants.length === 0 ? 'Henüz restoran kaydı yok' : 'Filtreye uygun restoran bulunamadı'}
+                      </p>
+                      <p className="text-sm">
+                        {restaurants.length === 0 ? 'Sipariş yüklendiğinde restoranlar otomatik eklenecek.' : 'Farklı filtreler deneyin.'}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -446,7 +457,7 @@ function EditRiskModal({
               onChange={(e) => setReason(e.target.value)}
               rows={4}
               placeholder="Risk durumu değişikliğinin nedenini açıklayın..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 placeholder-gray-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 placeholder-gray-600"
             />
           </div>
 
