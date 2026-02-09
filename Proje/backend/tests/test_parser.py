@@ -94,6 +94,77 @@ class TestParseReceipt:
         result = parse_receipt_text(text)
         assert result.total_amount == 156.0
 
+    def test_ocr_confusion_i_and_one(self):
+        """OCR I/l karışıklığı düzeltilir (1O5 -> 105)."""
+        text = """
+        Restoran
+        Toplam: 1O5 TL
+        """
+        result = parse_receipt_text(text)
+        assert result.total_amount == 105.0
+
+    def test_multiline_total_format(self):
+        """Toplam: ayrı satırda, tutar sonraki satırda."""
+        text = """
+        Cafe Y
+        Toplam:
+        78,50 TL
+        """
+        result = parse_receipt_text(text)
+        assert result.total_amount == 78.50
+
+    def test_date_yyyy_mm_dd_format(self):
+        """Tarih YYYY-MM-DD formatı."""
+        text = """
+        Restoran
+        2026-03-15 14:30
+        Toplam: 50.00
+        """
+        result = parse_receipt_text(text)
+        assert result.receipt_date is not None
+        assert result.receipt_date.year == 2026
+        assert result.receipt_date.month == 3
+        assert result.receipt_date.day == 15
+        assert result.receipt_date.hour == 14
+        assert result.receipt_date.minute == 30
+
+    def test_items_skip_phone_and_support(self):
+        """Telefon, destek hattı satırları ürün olarak parse edilmez."""
+        text = """
+        Restoran
+        +90 555 123 4567
+        Destek Hattı: 0850 xxx
+        1x Pizza 45.00 TL
+        Toplam: 45.00
+        """
+        result = parse_receipt_text(text)
+        assert len(result.items) == 1
+        assert result.items[0]["name"] == "Pizza"
+
+    def test_item_name_lahmacun_2_format(self):
+        """Lahmacun 2 45.00 formatı (ad başta, miktar ortada)."""
+        text = """
+        Test
+        Lahmacun 2 45.00
+        Toplam: 90.00
+        """
+        result = parse_receipt_text(text)
+        assert len(result.items) >= 1
+        item = result.items[0]
+        assert item["quantity"] == 2
+        assert item["unit_price"] == 45.0
+
+    def test_skip_patterns_restaurant_name(self):
+        """Fiş, Sipariş gibi kelimeler restoran adı olarak alınmaz; ilk geçerli satır alınır."""
+        text = """
+        Gerçek Restoran
+        Fiş
+        Sipariş Kodu: ABC123
+        Toplam: 100 TL
+        """
+        result = parse_receipt_text(text)
+        assert result.restaurant_name == "GERÇEK RESTORAN"
+
 
 class TestParserService:
     """ParserService facade testleri."""
