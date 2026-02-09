@@ -1,18 +1,25 @@
 """
-Admin API Endpoints - Dashboard & Management (TASK-BE-007: Auth required)
+Admin API Endpoints - Dashboard & Management (TASK-BE-007, TASK-AD-006)
 """
 from datetime import datetime, timedelta
 from typing import Optional
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import select, func, and_
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.db.models.restaurant import Restaurant, RiskStatus
 from app.db.models.order import Order
 from app.db.models.user import User
-from app.db.models.incident import HealthIncident
+from app.db.models.incident import HealthIncident, ReportStatus
 from app.core.deps import require_admin
+from app.schemas.incident import (
+    AdminIncidentListItem,
+    AdminIncidentListResponse,
+    AdminIncidentUpdateRequest,
+)
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -173,4 +180,120 @@ async def update_restaurant_risk_status(
         "restaurant_id": restaurant_id,
         "new_status": new_status.value,
         "message": f"Restaurant risk status updated to {new_status.value}"
+    }
+
+
+# --- TASK-AD-006: Incidents Management ---
+
+@router.get("/incidents", response_model=AdminIncidentListResponse)
+async def list_incidents(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None, description="PENDING, INVESTIGATING, CONFIRMED, DISMISSED"),
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Sağlık vakalarını listele (Admin).
+    """
+    conditions = []
+    if status:
+        try:
+            status_enum = ReportStatus(status)
+            conditions.append(HealthIncident.status == status_enum)
+        except ValueError:
+            pass
+
+    # Toplam sayı
+    count_stmt = select(func.count(HealthIncident.id))
+    if conditions:
+        count_stmt = count_stmt.where(and_(*conditions))
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    # Sayfalı sorgu (user, order->restaurant eager load)
+    offset = (page - 1) * limit
+    stmt = select(HealthIncident)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    stmt = (
+        stmt.order_by(HealthIncident.report_date.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    stmt = stmt.options(
+        selectinload(HealthIncident.user),
+        selectinload(HealthIncident.suspected_order).selectinload(Order.restaurant),
+    )
+    result = await db.execute(stmt)
+    incidents = result.scalars().all()
+
+    items = []
+    for hi in incidents:
+        restaurant_name = None
+        suspected_order_id = None
+        if hi.suspected_order:
+            suspected_order_id = hi.suspected_order.id
+            if hi.suspected_order.restaurant:
+                restaurant_name = hi.suspected_order.restaurant.name
+        items.append(
+            AdminIncidentListItem(
+                id=hi.id,
+                user_full_name=hi.user.full_name,
+                restaurant_name=restaurant_name,
+                suspected_order_id=suspected_order_id,
+                symptoms=hi.symptoms[:200] + ("..." if len(hi.symptoms) > 200 else ""),
+                severity_level=hi.severity_level,
+                status=hi.status.value,
+                report_date=hi.report_date,
+                admin_notes=hi.admin_notes,
+                is_verified_by_doctor=hi.is_verified_by_doctor,
+                updated_at=hi.updated_at,
+            )
+        )
+
+    return AdminIncidentListResponse(total=total, page=page, limit=limit, items=items)
+
+
+@router.put("/incidents/{incident_id}")
+async def update_incident(
+    incident_id: UUID,
+    body: AdminIncidentUpdateRequest,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Vaka durumu ve admin notunu güncelle.
+    """
+    result = await db.execute(
+        select(HealthIncident).where(HealthIncident.id == incident_id)
+    )
+    incident = result.scalar_one_or_none()
+    if not incident:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vaka bulunamadı",
+        )
+
+    if body.status is not None:
+        try:
+            incident.status = ReportStatus(body.status)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Geçersiz durum: {body.status}",
+            )
+        if body.status in ("CONFIRMED", "DISMISSED"):
+            incident.resolution_date = datetime.now()
+
+    if body.admin_notes is not None:
+        incident.admin_notes = body.admin_notes
+
+    await db.commit()
+    await db.refresh(incident)
+
+    return {
+        "success": True,
+        "incident_id": str(incident.id),
+        "status": incident.status.value,
+        "message": "Vaka güncellendi",
     }
