@@ -272,17 +272,20 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDemoData, setIsDemoData] = useState(false);
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
+        setIsDemoData(false);
         const res = await apiClient.get('/admin/orders', { params: { page: 1, limit: 100 } });
         const items = (res.data.items || []).map(mapApiOrder);
         setOrders(items);
         setError(null);
       } catch {
         setOrders(mockOrders);
+        setIsDemoData(true);
         setError(null);
       } finally {
         setLoading(false);
@@ -420,6 +423,11 @@ export default function OrdersPage() {
           <h1 className="text-2xl font-bold text-gray-900">Sipariş Yönetimi</h1>
           <p className="text-gray-700 mt-1">
             Tüm öğrenci siparişlerini görüntüleyin ve analiz edin
+            {isDemoData && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                Demo veri
+              </span>
+            )}
           </p>
           <p className="text-sm text-gray-600 mt-1">
             Test: Vakalar sayfasında bir vakaya tıklayıp &quot;Sipariş&quot; linkine basın veya{' '}
