@@ -1455,32 +1455,37 @@ Tüm siparişleri görme ve arama.
 #### TASK-AD-006: Incidents Management Page 🟢 P2
 **Süre:** 4 saat  
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Sağlık vakalarını görme ve yönetme.
 
 **Checklist:**
-- [ ] `src/pages/incidents.tsx`
-- [ ] DataTable:
-  - [ ] Öğrenci adı
-  - [ ] Restoran
-  - [ ] Semptomlar
-  - [ ] Şiddet
-  - [ ] Durum (PENDING/CONFIRMED/DISMISSED)
-  - [ ] Aksiyonlar
-- [ ] Detail Modal:
-  - [ ] Tüm bilgiler
-  - [ ] Admin notu ekleme
-  - [ ] Durum güncelleme
-- [ ] API:
-  - [ ] `GET /admin/incidents`
-  - [ ] `PUT /admin/incidents/{id}`
+- [x] `app/dashboard/incidents/page.tsx`
+- [x] DataTable:
+  - [x] Öğrenci adı
+  - [x] Restoran
+  - [x] Semptomlar
+  - [x] Şiddet
+  - [x] Durum (PENDING/INVESTIGATING/CONFIRMED/DISMISSED)
+  - [x] Aksiyonlar
+- [x] Detail Modal:
+  - [x] Tüm bilgiler
+  - [x] Admin notu ekleme
+  - [x] Durum güncelleme
+- [x] API:
+  - [x] `GET /v1/admin/incidents`
+  - [x] `PUT /v1/admin/incidents/{id}`
 
 **Acceptance Criteria:**
-- Vakalar listelenebilmeli
-- Admin notu eklenebilmeli
-- Durum güncellenebilmeli
+- [x] Vakalar listelenebilmeli
+- [x] Admin notu eklenebilmeli
+- [x] Durum güncellenebilmeli
+
+**Tamamlanma Notları:**
+- Backend: admin.py list_incidents, update_incident
+- Schemas: AdminIncidentListItem, AdminIncidentListResponse, AdminIncidentUpdateRequest
+- Admin panel: sayfalama, filtre, modal
 
 **Dependencies:** TASK-AD-002
 
