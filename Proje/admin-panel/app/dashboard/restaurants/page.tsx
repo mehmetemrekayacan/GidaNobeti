@@ -414,14 +414,14 @@ function EditRiskModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl">
+      <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl text-gray-900">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Risk Durumunu Güncelle</h2>
-        <p className="text-gray-600 mb-6">{restaurant.name}</p>
+        <p className="text-gray-900 mb-6">{restaurant.name}</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Status Select */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-800 mb-2">
               Risk Durumu
             </label>
             <select
@@ -438,7 +438,7 @@ function EditRiskModal({
 
           {/* Reason Textarea */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-800 mb-2">
               Risk Nedeni / Açıklama
             </label>
             <textarea
@@ -446,7 +446,7 @@ function EditRiskModal({
               onChange={(e) => setReason(e.target.value)}
               rows={4}
               placeholder="Risk durumu değişikliğinin nedenini açıklayın..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 placeholder-gray-500"
             />
           </div>
 
@@ -455,7 +455,7 @@ function EditRiskModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-800 rounded-lg hover:bg-gray-50 font-medium transition-colors"
             >
               İptal
             </button>

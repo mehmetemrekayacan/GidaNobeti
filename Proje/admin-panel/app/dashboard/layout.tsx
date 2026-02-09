@@ -34,7 +34,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <aside className="w-64 bg-white shadow-md flex flex-col" suppressHydrationWarning>
         <div className="p-6 border-b">
           <h1 className="text-xl font-bold text-gray-900">Gıda Nöbeti</h1>
-          <p className="text-sm text-gray-600">Yönetici Paneli</p>
+          <p className="text-sm text-gray-700">Yönetici Paneli</p>
         </div>
 
         <nav className="flex-1 p-4">
@@ -46,8 +46,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors mb-1 ${
                   isActive 
-                    ? 'bg-blue-50 text-blue-600 font-medium' 
-                    : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                    ? 'bg-blue-50 text-blue-700 font-medium' 
+                    : 'text-gray-800 hover:bg-blue-50 hover:text-blue-700'
                 }`}
               >
                 <item.icon size={20} />
