@@ -20,6 +20,7 @@ from app.schemas.incident import (
     AdminIncidentListResponse,
     AdminIncidentUpdateRequest,
 )
+from app.schemas.order import AdminOrderListItem, AdminOrderListResponse
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -252,6 +253,51 @@ async def list_incidents(
         )
 
     return AdminIncidentListResponse(total=total, page=page, limit=limit, items=items)
+
+
+# --- Admin Orders List ---
+
+
+@router.get("/orders", response_model=AdminOrderListResponse)
+async def list_admin_orders(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Tüm siparişleri listele (Admin). Öğrenci adı, restoran, tarih, tutar, yöntem.
+    """
+    count_stmt = select(func.count(Order.id))
+    total = (await db.execute(count_stmt)).scalar_one() or 0
+
+    offset = (page - 1) * limit
+    stmt = (
+        select(Order)
+        .order_by(Order.declared_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    stmt = stmt.options(
+        selectinload(Order.user),
+        selectinload(Order.restaurant),
+    )
+    result = await db.execute(stmt)
+    orders = result.scalars().all()
+
+    items = [
+        AdminOrderListItem(
+            id=o.id,
+            student_name=o.user.full_name,
+            restaurant_name=o.restaurant.name if o.restaurant else None,
+            declared_at=o.declared_at,
+            total_amount=float(o.total_amount) if o.total_amount is not None else None,
+            method=o.method.value,
+        )
+        for o in orders
+    ]
+
+    return AdminOrderListResponse(total=total, page=page, limit=limit, items=items)
 
 
 @router.put("/incidents/{incident_id}")

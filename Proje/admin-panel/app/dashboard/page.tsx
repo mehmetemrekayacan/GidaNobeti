@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui';
 import { isAuthenticated } from '@/lib/auth';
 import { apiClient } from '@/lib/api-client';
-import { TrendingUp, Users, AlertCircle, UtensilsCrossed } from 'lucide-react';
+import { TrendingUp, Users, AlertCircle, UtensilsCrossed, Calendar } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -50,8 +50,11 @@ function calcTrend(
   return pct >= 0 ? `+${pct}%` : `${pct}%`;
 }
 
+type Period = 'last_7_days' | 'last_30_days';
+
 export default function DashboardPage() {
   const router = useRouter();
+  const [period, setPeriod] = useState<Period>('last_7_days');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,11 +66,13 @@ export default function DashboardPage() {
     }
 
     const fetchStats = async () => {
+      setLoading(true);
       try {
         const response = await apiClient.get('/admin/dashboard/statistics', {
-          params: { period: 'last_7_days' },
+          params: { period },
         });
         setStats(response.data);
+        setError(null);
       } catch (err: unknown) {
         const e = err as { response?: { data?: { detail?: string } } };
         setError(e.response?.data?.detail || 'Veri yüklenirken hata oluştu');
@@ -77,7 +82,7 @@ export default function DashboardPage() {
     };
 
     fetchStats();
-  }, [router]);
+  }, [router, period]);
 
   if (loading) {
     return (
@@ -149,11 +154,26 @@ export default function DashboardPage() {
     },
   ];
 
+  const periodLabel = period === 'last_7_days' ? 'Son 7 gün' : 'Son 30 gün';
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-700 mt-1">Son 7 günlük özet</p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-700 mt-1">{periodLabel} özet</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-gray-500" />
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as Period)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
+          >
+            <option value="last_7_days">Son 7 gün</option>
+            <option value="last_30_days">Son 30 gün</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

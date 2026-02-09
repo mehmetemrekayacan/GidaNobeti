@@ -48,6 +48,27 @@ class OrderHistoryListResponse(BaseModel):
     items: list[OrderHistoryEntrySchema]
 
 
+# --- Admin Orders List ---
+
+
+class AdminOrderListItem(BaseModel):
+    """Admin order listesi tek satır."""
+    id: UUID
+    student_name: str
+    restaurant_name: str | None
+    declared_at: datetime
+    total_amount: float | None
+    method: str
+
+
+class AdminOrderListResponse(BaseModel):
+    """Admin order listesi (sayfalı)."""
+    total: int
+    page: int
+    limit: int
+    items: list[AdminOrderListItem]
+
+
 class OrderUploadResponse(BaseModel):
     order_id: UUID
     restaurant_name: str | None

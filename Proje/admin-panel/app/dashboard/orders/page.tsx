@@ -4,21 +4,35 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui';
 import { Search, Filter, Download, Calendar, Package } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
 interface Order {
-  id: number;
+  id: string;
   studentName: string;
   restaurant: string;
   date: string;
   time: string;
   amount: number;
-  method: 'SCREENSHOT' | 'RECEIPT';
+  method: 'SCREENSHOT' | 'RECEIPT' | 'PHYSICAL_RECEIPT' | 'MANUAL_ENTRY';
 }
 
-// Mock data - Backend hazır olunca API'den gelecek
+function mapApiOrder(api: { id: string; student_name: string; restaurant_name: string | null; declared_at: string; total_amount: number | null; method: string }): Order {
+  const d = new Date(api.declared_at);
+  return {
+    id: api.id,
+    studentName: api.student_name,
+    restaurant: api.restaurant_name || '-',
+    date: d.toISOString().split('T')[0],
+    time: d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+    amount: api.total_amount ?? 0,
+    method: api.method as Order['method'],
+  };
+}
+
+// Fallback mock - API hata verirse
 const mockOrders: Order[] = [
   {
-    id: 1,
+    id: '1',
     studentName: 'Ahmet Yılmaz',
     restaurant: 'Pasaport Pizza',
     date: '2026-01-21',
@@ -27,7 +41,7 @@ const mockOrders: Order[] = [
     method: 'SCREENSHOT',
   },
   {
-    id: 2,
+    id: '2',
     studentName: 'Zeynep Kaya',
     restaurant: 'Burger King İzmir',
     date: '2026-01-21',
@@ -36,7 +50,7 @@ const mockOrders: Order[] = [
     method: 'RECEIPT',
   },
   {
-    id: 3,
+    id: '3',
     studentName: 'Mehmet Demir',
     restaurant: 'Dönerci Ahmet Usta',
     date: '2026-01-20',
@@ -45,7 +59,7 @@ const mockOrders: Order[] = [
     method: 'SCREENSHOT',
   },
   {
-    id: 4,
+    id: '4',
     studentName: 'Ayşe Öztürk',
     restaurant: 'Çiğ Köfteci Ramazan',
     date: '2026-01-20',
@@ -54,7 +68,7 @@ const mockOrders: Order[] = [
     method: 'RECEIPT',
   },
   {
-    id: 5,
+    id: '5',
     studentName: 'Can Şahin',
     restaurant: 'Pasaport Pizza',
     date: '2026-01-19',
@@ -63,7 +77,7 @@ const mockOrders: Order[] = [
     method: 'SCREENSHOT',
   },
   {
-    id: 6,
+    id: '6',
     studentName: 'Elif Yıldız',
     restaurant: 'Kahvaltı Durağı',
     date: '2026-01-19',
@@ -72,7 +86,7 @@ const mockOrders: Order[] = [
     method: 'RECEIPT',
   },
   {
-    id: 7,
+    id: '7',
     studentName: 'Burak Arslan',
     restaurant: 'Burger King İzmir',
     date: '2026-01-18',
@@ -81,7 +95,7 @@ const mockOrders: Order[] = [
     method: 'SCREENSHOT',
   },
   {
-    id: 8,
+    id: '8',
     studentName: 'Selin Çelik',
     restaurant: 'Dönerci Ahmet Usta',
     date: '2026-01-18',
@@ -90,7 +104,7 @@ const mockOrders: Order[] = [
     method: 'RECEIPT',
   },
   {
-    id: 9,
+    id: '9',
     studentName: 'Emre Koç',
     restaurant: 'Pasaport Pizza',
     date: '2026-01-17',
@@ -99,7 +113,7 @@ const mockOrders: Order[] = [
     method: 'SCREENSHOT',
   },
   {
-    id: 10,
+    id: '10',
     studentName: 'Deniz Aydın',
     restaurant: 'Çiğ Köfteci Ramazan',
     date: '2026-01-17',
@@ -108,7 +122,7 @@ const mockOrders: Order[] = [
     method: 'RECEIPT',
   },
   {
-    id: 11,
+    id: '11',
     studentName: 'Onur Tekin',
     restaurant: 'Burger King İzmir',
     date: '2026-01-16',
@@ -117,7 +131,7 @@ const mockOrders: Order[] = [
     method: 'SCREENSHOT',
   },
   {
-    id: 12,
+    id: '12',
     studentName: 'Merve Polat',
     restaurant: 'Kahvaltı Durağı',
     date: '2026-01-16',
@@ -255,7 +269,27 @@ export default function OrdersPage() {
   const orderIdParam = searchParams.get('order');
   const rowRef = useRef<HTMLTableRowElement | null>(null);
 
-  const [orders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get('/admin/orders', { params: { page: 1, limit: 100 } });
+        const items = (res.data.items || []).map(mapApiOrder);
+        setOrders(items);
+        setError(null);
+      } catch {
+        setOrders(mockOrders);
+        setError(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrders();
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [restaurantFilter, setRestaurantFilter] = useState('ALL');
   const [methodFilter, setMethodFilter] = useState('ALL');
@@ -302,21 +336,24 @@ export default function OrdersPage() {
   }, [searchQuery, restaurantFilter, methodFilter, startDate, endDate, orders, orderIdParam]);
 
   const getMethodBadge = (method: Order['method']) => {
-    const styles = {
+    const styles: Record<string, string> = {
       SCREENSHOT: 'bg-blue-100 text-blue-800 border-blue-200',
       RECEIPT: 'bg-green-100 text-green-800 border-green-200',
+      PHYSICAL_RECEIPT: 'bg-green-100 text-green-800 border-green-200',
+      MANUAL_ENTRY: 'bg-gray-100 text-gray-800 border-gray-200',
     };
-
-    const labels = {
+    const labels: Record<string, string> = {
       SCREENSHOT: 'Ekran Görüntüsü',
       RECEIPT: 'Fiş',
+      PHYSICAL_RECEIPT: 'Fiş',
+      MANUAL_ENTRY: 'Manuel',
     };
+    const style = styles[method] || 'bg-gray-100 text-gray-800 border-gray-200';
+    const label = labels[method] || method;
 
     return (
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[method]}`}
-      >
-        {labels[method]}
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${style}`}>
+        {label}
       </span>
     );
   };
@@ -356,6 +393,24 @@ export default function OrdersPage() {
     screenshots: orders.filter((o) => o.method === 'SCREENSHOT').length,
     receipts: orders.filter((o) => o.method === 'RECEIPT').length,
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Sipariş Yönetimi</h1>
+        <div className="flex items-center justify-center py-16 text-gray-500">Yükleniyor...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Sipariş Yönetimi</h1>
+        <div className="rounded-lg bg-red-50 p-4 text-red-700">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -478,6 +533,8 @@ export default function OrdersPage() {
               <option value="ALL" className="text-gray-900 bg-white">Tüm Yöntemler</option>
               <option value="SCREENSHOT" className="text-gray-900 bg-white">Ekran Görüntüsü</option>
               <option value="RECEIPT" className="text-gray-900 bg-white">Fiş</option>
+              <option value="PHYSICAL_RECEIPT" className="text-gray-900 bg-white">Fiş (Fiziksel)</option>
+              <option value="MANUAL_ENTRY" className="text-gray-900 bg-white">Manuel</option>
             </select>
 
             {/* Clear filters */}
