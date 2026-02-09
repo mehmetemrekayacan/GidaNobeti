@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui';
 import { Search, Filter, Download, Calendar, Package } from 'lucide-react';
@@ -127,36 +127,158 @@ const mockOrders: Order[] = [
   },
 ];
 
+function OrdersTable({
+  filteredOrders,
+  orderIdParam,
+  orders,
+  itemsPerPage,
+  getMethodBadge,
+  rowRef,
+}: {
+  filteredOrders: Order[];
+  orderIdParam: string | null;
+  orders: Order[];
+  itemsPerPage: number;
+  getMethodBadge: (m: Order['method']) => React.ReactElement;
+  rowRef: React.RefObject<HTMLTableRowElement | null>;
+}) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    if (orderIdParam && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [orderIdParam, filteredOrders, rowRef]);
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Öğrenci</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Restoran</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Tarih & Saat</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Tutar</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Yöntem</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {paginatedOrders.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-16">
+                  <div className="flex flex-col items-center justify-center gap-3 text-gray-500">
+                    <Package className="w-12 h-12 text-gray-300" />
+                    <p className="font-medium text-gray-600">
+                      {orderIdParam ? 'Bu sipariş bulunamadı' : filteredOrders.length === 0 && orders.length === 0 ? 'Henüz sipariş yok' : 'Filtreye uygun sipariş bulunamadı'}
+                    </p>
+                    <p className="text-sm">
+                      {orderIdParam ? 'Sipariş ID kontrol edin veya tüm siparişlere dönün.' : 'Farklı filtreler deneyin.'}
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              paginatedOrders.map((order) => (
+                <tr
+                  key={order.id}
+                  ref={(el) => {
+                    if (orderIdParam && String(order.id) === orderIdParam) {
+                      (rowRef as React.MutableRefObject<HTMLTableRowElement | null>).current = el;
+                    }
+                  }}
+                  className={`hover:bg-gray-50 ${orderIdParam && String(order.id) === orderIdParam ? 'bg-blue-200! ring-2 ring-blue-500 -ring-offset-2' : ''}`}
+                >
+                  <td className="px-6 py-4">
+                    <div className="font-medium text-gray-900">{order.studentName}</div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-900">{order.restaurant}</td>
+                  <td className="px-6 py-4">
+                    <div className="text-gray-900">{order.date}</div>
+                    <div className="text-sm text-gray-700">{order.time}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="font-medium text-gray-900">₺{order.amount.toFixed(2)}</span>
+                  </td>
+                  <td className="px-6 py-4">{getMethodBadge(order.method)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      {totalPages > 1 && (
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+          <div className="text-sm text-gray-700">
+            <span className="font-medium">{filteredOrders.length}</span> sipariş bulundu
+          </div>
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              Önceki
+            </button>
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-1 rounded-lg font-medium ${currentPage === page ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              Sonraki
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export default function OrdersPage() {
   const searchParams = useSearchParams();
   const orderIdParam = searchParams.get('order');
   const rowRef = useRef<HTMLTableRowElement | null>(null);
 
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>(mockOrders);
+  const [orders] = useState<Order[]>(mockOrders);
   const [searchQuery, setSearchQuery] = useState('');
   const [restaurantFilter, setRestaurantFilter] = useState('ALL');
   const [methodFilter, setMethodFilter] = useState('ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Filter key: when filters change, table remounts and page resets to 1 (no setState in effect)
+  const filterKey = `${searchQuery}-${restaurantFilter}-${methodFilter}-${startDate}-${endDate}-${orderIdParam ?? ''}`;
 
   // Get unique restaurants for filter
   const uniqueRestaurants = Array.from(new Set(orders.map((o) => o.restaurant)));
 
-  // Filter orders
-  useEffect(() => {
+  // Filter orders (derived state - no effect)
+  const filteredOrders = useMemo(() => {
     let filtered = orders;
 
-    // Filter by order ID (from ?order= param - incident link)
     if (orderIdParam) {
       filtered = filtered.filter(
         (o) => String(o.id) === orderIdParam || o.id.toString() === orderIdParam
       );
     }
 
-    // Search by student name or restaurant
     if (searchQuery && !orderIdParam) {
       filtered = filtered.filter(
         (o) =>
@@ -165,41 +287,19 @@ export default function OrdersPage() {
       );
     }
 
-    // Filter by restaurant
     if (restaurantFilter !== 'ALL') {
       filtered = filtered.filter((o) => o.restaurant === restaurantFilter);
     }
 
-    // Filter by method
     if (methodFilter !== 'ALL') {
       filtered = filtered.filter((o) => o.method === methodFilter);
     }
 
-    // Filter by date range
-    if (startDate) {
-      filtered = filtered.filter((o) => o.date >= startDate);
-    }
-    if (endDate) {
-      filtered = filtered.filter((o) => o.date <= endDate);
-    }
+    if (startDate) filtered = filtered.filter((o) => o.date >= startDate);
+    if (endDate) filtered = filtered.filter((o) => o.date <= endDate);
 
-    setFilteredOrders(filtered);
-    setCurrentPage(1);
+    return filtered;
   }, [searchQuery, restaurantFilter, methodFilter, startDate, endDate, orders, orderIdParam]);
-
-  // Scroll to highlighted order row (runs after filter applied)
-  useEffect(() => {
-    if (orderIdParam && rowRef.current) {
-      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [orderIdParam, filteredOrders]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-  const paginatedOrders = filteredOrders.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   const getMethodBadge = (method: Order['method']) => {
     const styles = {
@@ -399,122 +499,16 @@ export default function OrdersPage() {
         </div>
       </Card>
 
-      {/* Table */}
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  Öğrenci
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  Restoran
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  Tarih & Saat
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  Tutar
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  Yöntem
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {paginatedOrders.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-16">
-                    <div className="flex flex-col items-center justify-center gap-3 text-gray-500">
-                      <Package className="w-12 h-12 text-gray-300" />
-                      <p className="font-medium text-gray-600">
-                        {orderIdParam
-                          ? 'Bu sipariş bulunamadı'
-                          : filteredOrders.length === 0 && orders.length === 0
-                            ? 'Henüz sipariş yok'
-                            : 'Filtreye uygun sipariş bulunamadı'}
-                      </p>
-                      <p className="text-sm">
-                        {orderIdParam
-                          ? 'Sipariş ID kontrol edin veya tüm siparişlere dönün.'
-                          : 'Farklı filtreler deneyin.'}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                paginatedOrders.map((order) => (
-                  <tr
-                    key={order.id}
-                    ref={(el) => {
-                      if (orderIdParam && String(order.id) === orderIdParam) {
-                        rowRef.current = el;
-                      }
-                    }}
-                    className={`hover:bg-gray-50 ${orderIdParam && String(order.id) === orderIdParam ? '!bg-blue-200 outline outline-2 outline-blue-500 outline-offset-[-2px]' : ''}`}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{order.studentName}</div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-900">{order.restaurant}</td>
-                    <td className="px-6 py-4">
-                      <div className="text-gray-900">{order.date}</div>
-                      <div className="text-sm text-gray-700">{order.time}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="font-medium text-gray-900">
-                        ₺{order.amount.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">{getMethodBadge(order.method)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-            <div className="text-sm text-gray-700">
-              <span className="font-medium">{filteredOrders.length}</span> sipariş bulundu
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                Önceki
-              </button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1 rounded-lg font-medium ${
-                      currentPage === page
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                Sonraki
-              </button>
-            </div>
-          </div>
-        )}
-      </Card>
+      {/* Table - key resets page to 1 when filters change */}
+      <OrdersTable
+        key={filterKey}
+        filteredOrders={filteredOrders}
+        orderIdParam={orderIdParam}
+        orders={orders}
+        itemsPerPage={itemsPerPage}
+        getMethodBadge={getMethodBadge}
+        rowRef={rowRef}
+      />
     </div>
   );
 }

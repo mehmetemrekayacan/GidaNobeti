@@ -127,7 +127,7 @@ export default function IncidentsPage() {
         <div
           role="alert"
           aria-live="polite"
-          className={`fixed top-4 right-4 z-[100] px-4 py-3 rounded-lg shadow-lg text-gray-900 font-medium ${
+          className={`fixed top-4 right-4 z-100 px-4 py-3 rounded-lg shadow-lg text-gray-900 font-medium ${
             toast.type === 'success' ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'
           }`}
         >
