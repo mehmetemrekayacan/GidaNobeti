@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     
+    # Testing - pytest sırasında rate limit bypass
+    TESTING: bool = False
+    
     # Sentry (TASK-BE-019) - opsiyonel, boşsa devre dışı
     SENTRY_DSN: str | None = None
     SENTRY_TRACES_SAMPLE_RATE: float = 0.1

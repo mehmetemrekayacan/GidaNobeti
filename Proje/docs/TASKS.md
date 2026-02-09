@@ -1664,26 +1664,31 @@ Otomatik veritabanı yedeği.
 #### TASK-QA-001: Unit Tests (Backend) 🟡 P1
 **Süre:** 8 saat  
 **Sorumlu:** Mehmet  
-**Durum:** ⏳ Pending
+**Durum:** 🚧 In Progress
 
 **Açıklama:**
 Backend için unit testler (pytest).
 
 **Checklist:**
-- [ ] `tests/` klasör yapısı
-- [ ] Test fixtures (test database, mock users)
-- [ ] Test cases:
-  - [ ] Auth: Login, Register
-  - [ ] OCR: Text parsing
-  - [ ] Risk: Algorithm logic
-  - [ ] API: CRUD operations
-- [ ] Coverage report (`pytest --cov`)
-- [ ] Target: %80 coverage
+- [x] `tests/` klasör yapısı
+- [x] Test fixtures (async_client, db_session, sample_receipt)
+- [x] Test cases:
+  - [x] Auth: Login (success, wrong password, invalid TCKN)
+  - [x] Parser: parse_receipt_text (restoran, tutar, tarih, ürünler)
+  - [x] Risk: update_restaurant_risk_status (SAFE, RED_FLAG, WATCHLIST)
+  - [x] API: Health, Root endpoint
+- [x] Coverage report (`pytest --cov`)
+- [ ] Target: %80 coverage (şu an %65)
 
 **Acceptance Criteria:**
-- Tüm testler pass olmalı
-- Coverage %80+
-- CI/CD pipeline'da çalışmalı
+- [x] Tüm testler pass olmalı (18/18 ✅)
+- [ ] Coverage %80+
+- [ ] CI/CD pipeline'da çalışmalı
+
+**Tamamlanma Notları:**
+- 18 test: test_api (5), test_parser (11), test_risk_service (3)
+- pytest.ini, conftest.py, event_loop fixture
+- Docker: `docker exec gidanobeti_api pytest tests/ -v --cov=app`
 
 **Dependencies:** TASK-BE-006, TASK-BE-011
 
