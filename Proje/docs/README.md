@@ -8,6 +8,7 @@
 
 | Dosya | Açıklama |
 |-------|----------|
+| **ARCHITECTURE.md** | Mimari özeti, klasör yapısı, veritabanı/ER, katman akışı |
 | **TASKS.md** | Detaylı görev listesi, task durumları, acceptance criteria |
 | **SPEC.md** | Teknik spesifikasyon, API, veritabanı şeması |
 | **PLAN.md** | Proje fazları, sprint planlaması, milestone'lar |

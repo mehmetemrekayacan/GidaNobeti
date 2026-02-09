@@ -49,6 +49,7 @@ async def find_or_create_restaurant(
         return existing, False
 
     # Yeni oluştur (ileride Levenshtein ile fuzzy matching eklenebilir)
+    # flush: ID alır, commit caller'da (tek transaction)
     new_restaurant = Restaurant(
         name=display_name,
         normalized_name=normalized,
@@ -57,7 +58,6 @@ async def find_or_create_restaurant(
         is_active=True,
     )
     db.add(new_restaurant)
-    await db.commit()
-    await db.refresh(new_restaurant)
+    await db.flush()  # INSERT çalışır, id atanır; commit çağıran endpoint'te
     logger.info(f"Created new restaurant: {display_name} (id={new_restaurant.id})")
     return new_restaurant, True

@@ -85,6 +85,7 @@ flutter run
 
 | Dosya | İçerik |
 |-------|--------|
+| [ARCHITECTURE.md](Proje/docs/ARCHITECTURE.md) | Mimari özeti, klasör yapısı, veritabanı şeması |
 | [SPEC.md](Proje/docs/SPEC.md) | Teknik spesifikasyonlar, API dok., veritabanı şeması |
 | [PLAN.md](Proje/docs/PLAN.md) | Geliştirme planı, roadmap, sprint detayları |
 | [TASKS.md](Proje/docs/TASKS.md) | Detaylı görev listesi (60+ task) |

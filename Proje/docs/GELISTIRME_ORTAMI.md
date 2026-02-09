@@ -101,7 +101,18 @@ curl http://localhost:8000/health
 
 ---
 
-### Adım 3: Seed Data Kontrolü/Yükleme ⏱️ 30 saniye
+### Adım 3: Veritabanı Migration (Schema güncellemeleri) ⏱️ 10 saniye
+
+**Alembic migration varsa (yeni VIEW'lar, tablo değişiklikleri):**
+```bash
+docker exec -it gidanobeti_api alembic upgrade head
+```
+
+**Not:** İlk kurulumda `main.py` tabloları otomatik oluşturur. Migration yalnızca şema değişikliklerinde gereklidir.
+
+---
+
+### Adım 4: Seed Data Kontrolü/Yükleme ⏱️ 30 saniye
 
 **İlk Kez veya Veritabanı Temizlendiyse:**
 ```bash
@@ -127,7 +138,7 @@ docker exec -it gidanobeti_api python seed_restaurants.py
 
 ---
 
-### Adım 4: Admin Panel'i Başlat ⏱️ 1-2 dakika
+### Adım 5: Admin Panel'i Başlat ⏱️ 1-2 dakika
 
 **Yeni Terminal Açın (Backend terminal'ini kapatmayın):**
 
@@ -164,7 +175,7 @@ npm run dev
 
 ---
 
-### Adım 5: Mobile App'i Başlat (Opsiyonel) ⏱️ 3-5 dakika
+### Adım 6: Mobile App'i Başlat (Opsiyonel) ⏱️ 3-5 dakika
 
 **Sadece Mobile App geliştiriyorsanız:**
 
@@ -347,9 +358,10 @@ start-dev.bat
 
 1. **Docker Desktop'ı aç** (1-2 dk)
 2. **Backend'i başlat:** `docker-compose up -d` (2-3 dk)
-3. **Seed data kontrol:** `docker exec -it gidanobeti_api python seed_restaurants.py` (30 sn)
-4. **Admin Panel'i başlat:** `cd admin-panel && npm run dev` (1-2 dk)
-5. **Mobile App (opsiyonel):** `cd mobile && flutter run` (3-5 dk)
+3. **Migration (opsiyonel):** `docker exec -it gidanobeti_api alembic upgrade head` (10 sn)
+4. **Seed data kontrol:** `docker exec -it gidanobeti_api python seed_restaurants.py` (30 sn)
+5. **Admin Panel'i başlat:** `cd admin-panel && npm run dev` (1-2 dk)
+6. **Mobile App (opsiyonel):** `cd mobile && flutter run` (3-5 dk)
 
 **Toplam Süre:** ~5-10 dakika
 
