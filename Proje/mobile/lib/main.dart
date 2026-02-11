@@ -12,6 +12,8 @@ import 'features/restaurant/screens/restaurant_detail_screen.dart';
 import 'features/restaurant/screens/risky_restaurants_screen.dart';
 import 'features/order/screens/order_upload_screen.dart';
 import 'features/order/screens/order_history_screen.dart';
+import 'features/incident/screens/incident_report_screen.dart';
+import 'features/incident/screens/my_incidents_screen.dart';
 
 void main() {
   // Setup BLoC observer for debugging
@@ -53,6 +55,8 @@ class MyApp extends StatelessWidget {
           '/risky-restaurants': (context) => const RiskyRestaurantsScreen(),
           '/order-upload': (context) => const OrderUploadScreen(),
           '/order-history': (context) => const OrderHistoryScreen(),
+          '/incident-report': (context) => const IncidentReportScreen(),
+          '/my-incidents': (context) => const MyIncidentsScreen(),
         },
         onGenerateRoute: (settings) {
           if (settings.name == '/restaurant-detail') {

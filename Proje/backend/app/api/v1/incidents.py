@@ -4,10 +4,11 @@ Incidents API - Sağlık Vakası Bildirimi (TASK-BE-015)
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from app.core.limiter import limiter
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
 from app.db.models.order import Order
@@ -15,7 +16,12 @@ from app.db.models.restaurant import Restaurant
 from app.db.models.incident import HealthIncident
 from app.core.deps import get_current_user
 from app.db.models.user import User
-from app.schemas.incident import IncidentReportRequest, IncidentReportResponse
+from app.schemas.incident import (
+    IncidentReportRequest,
+    IncidentReportResponse,
+    MyIncidentListResponse,
+    MyIncidentListItem,
+)
 from app.services.risk_service import update_restaurant_risk_status
 
 router = APIRouter(prefix="/incidents", tags=["Incidents"])
@@ -86,3 +92,52 @@ async def report_health_incident(
         incident_id=incident.id,
         next_steps=next_steps,
     )
+
+
+@router.get("/me", response_model=MyIncidentListResponse)
+async def list_my_incidents(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Giriş yapan öğrencinin kendi vaka bildirimlerini listele (Bildirimlerim).
+    """
+    count_stmt = select(func.count(HealthIncident.id)).where(
+        HealthIncident.user_id == current_user.id
+    )
+    total = (await db.execute(count_stmt)).scalar_one() or 0
+
+    offset = (page - 1) * limit
+    stmt = (
+        select(HealthIncident)
+        .where(HealthIncident.user_id == current_user.id)
+        .order_by(HealthIncident.report_date.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    stmt = stmt.options(
+        selectinload(HealthIncident.suspected_order).selectinload(Order.restaurant),
+    )
+    result = await db.execute(stmt)
+    incidents = result.scalars().all()
+
+    items = []
+    for hi in incidents:
+        restaurant_name = None
+        if hi.suspected_order and hi.suspected_order.restaurant:
+            restaurant_name = hi.suspected_order.restaurant.name
+        symptoms_text = hi.symptoms[:200] + ("..." if len(hi.symptoms) > 200 else "")
+        items.append(
+            MyIncidentListItem(
+                id=hi.id,
+                restaurant_name=restaurant_name,
+                symptoms=symptoms_text,
+                severity_level=hi.severity_level,
+                status=hi.status.value,
+                report_date=hi.report_date,
+            )
+        )
+
+    return MyIncidentListResponse(total=total, page=page, limit=limit, items=items)

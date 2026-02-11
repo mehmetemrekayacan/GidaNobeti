@@ -240,6 +240,20 @@ class HomeScreen extends StatelessWidget {
               ),
               _buildQuickActionCard(
                 context,
+                icon: Icons.medical_services_outlined,
+                title: 'Sağlık Sorunu Bildir',
+                color: Colors.orange,
+                onTap: () => Navigator.pushNamed(context, '/incident-report'),
+              ),
+              _buildQuickActionCard(
+                context,
+                icon: Icons.list_alt,
+                title: 'Bildirimlerim',
+                color: Colors.teal,
+                onTap: () => Navigator.pushNamed(context, '/my-incidents'),
+              ),
+              _buildQuickActionCard(
+                context,
                 icon: Icons.settings,
                 title: 'Ayarlar',
                 color: Colors.grey,

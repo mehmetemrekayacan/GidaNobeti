@@ -165,10 +165,68 @@ Detaylı sorun giderme: `docs/DEMO_FIXES.md` ve `docs/GELISTIRME_ORTAMI.md`.
 
 ---
 
+## Sağlık Sorunu Bildir’i nasıl test edersiniz?
+
+Bu akış **TASK-MB-015** (Incident Report) ile eklendi. Aşağıdaki adımlarla inceleyebilirsiniz.
+
+### Ön koşullar
+
+1. **Backend çalışıyor:** `docker-compose up -d` ve http://localhost:8000/health → `{"status":"healthy"}`.
+2. **Mobil uygulama çalışıyor:** `cd Proje\mobile` → `flutter run` (emulator veya cihaz seçili).
+3. **Öğrenci ile giriş yapılmış:** Örn. TCKN `12345678901`, şifre `Test123!`.
+
+### Adım adım test
+
+1. **Ana sayfaya gidin** (girişten sonra otomatik açılır).
+2. **Hızlı İşlemler** bölümünde **“Sağlık Sorunu Bildir”** kartına (turuncu, sağlık ikonu) dokunun.
+3. **Sağlık Sorunu Bildir** ekranı açılır:
+   - **Şüphelenilen sipariş:** Dropdown’da son 3 günün siparişleri listelenir.  
+     - Eğer “Son 3 günde sipariş bulunamadı” yazıyorsa: önce **Sipariş Yükle** veya **Geçmiş** ile en az bir sipariş oluşturmuş olmanız gerekir (ve siparişin `declared_at` tarihi son 3 gün içinde olmalı).
+   - **Semptomlar:** En az 10 karakter yazın (örn. “Mide bulantısı ve baş ağrısı”).
+   - **Şiddet:** 1–5 arası bir değer seçin (1 = hafif, 5 = çok ciddi).
+4. **“Bildir”** butonuna basın.
+5. **Beklenen sonuç:**
+   - İstek başarılıysa bir **dialog** açılır: “Bildirim alındı”, kayıt no (incident_id), “Önerilen adımlar” listesi ve “Lütfen sağlık görevlisine de başvurunuz.” metni.
+   - **Tamam** deyince dialog kapanır, semptom alanı temizlenir.
+6. **Hata senaryoları (isteğe bağlı):**
+   - Semptomları 10 karakterden az yazıp **Bildir** → “Semptomları en az 10 karakter…” uyarısı.
+   - Şüphelenilen sipariş seçmeden (liste boşken) bildirim yapılamaz; “Son 3 günde sipariş bulunamadı” mesajı görünür.
+
+### API kontrolü (isteğe bağlı)
+
+Backend’in incident endpoint’ini doğrudan denemek için (ör. Postman / curl):
+
+```bash
+# Önce login ile token alın
+curl -X POST http://localhost:8000/v1/auth/login -H "Content-Type: application/json" -d "{\"tckn\":\"12345678901\",\"password\":\"Test123!\"}"
+
+# Dönen access_token ile (suspected_order_id = öğrencinin bir siparişinin UUID’si)
+curl -X POST http://localhost:8000/v1/incidents/report \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d "{\"suspected_order_id\":\"<order-uuid>\",\"symptoms\":\"Mide bulantısı ve baş ağrısı yaşadım.\",\"severity_level\":3}"
+```
+
+Başarılı yanıt: `{"incident_id":"...", "next_steps":[...]}`.  
+Mobil uygulama aynı endpoint’i kullanır; token oturumdan gelir.
+
+### Bildirimlerim
+
+Yaptığınız sağlık bildirimlerini görmek için:
+
+- **Ana sayfa** → Hızlı İşlemler → **“Bildirimlerim”** (teal/liste ikonu), veya
+- **Sağlık Sorunu Bildir** ekranında sağ üstte **“Bildirimlerim”** butonu.
+
+Listede restoran, semptom özeti, durum (Beklemede / İnceleniyor / Onaylandı / Reddedildi), şiddet ve tarih görünür. Yenilemek için sayfayı aşağı çekin veya app bar’daki yenile ikonuna basın.
+
+---
+
 ## Mobil Faz 2 Özellikleri (Şubat 2026)
 
 - **Giriş:** Login/Register; oturum saklanır (uygulama kapatılsa bile giriş kalır).
-- **Ana sayfa:** Risk Panosu (riskli restoranlar listesi), Hızlı İşlemler (Restoranlar, Riskli Restoranlar, Sipariş Yükle, Geçmiş).
-- **Sipariş Yükle:** Kamera veya galeriden fiş fotoğrafı → OCR ile yükleme; risk uyarıları gösterilir.
+- **Ana sayfa:** Risk Panosu, Hızlı İşlemler (Restoranlar, Riskli Restoranlar, Sipariş Yükle, Geçmiş, **Sağlık Sorunu Bildir**, **Bildirimlerim**).
+- **Sipariş Yükle:** Kamera veya galeriden fiş fotoğrafı → OCR ile yükleme.
 - **Sipariş Geçmişi:** Kendi siparişlerin listesi (sayfalama).
 - **Riskli Restoranlar:** Tam liste ekranı + ana sayfada özet.
+- **Sağlık Sorunu Bildir:** Şüphelenilen sipariş (son 3 gün), semptomlar, şiddet; bildir → başarı dialogu.
+- **Bildirimlerim:** Yapılan vaka bildirimlerinin listesi (durum, restoran, tarih).

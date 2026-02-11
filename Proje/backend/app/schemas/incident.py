@@ -20,6 +20,24 @@ class IncidentReportResponse(BaseModel):
     next_steps: list[str] = Field(default_factory=list)
 
 
+class MyIncidentListItem(BaseModel):
+    """Öğrencinin kendi vaka listesi tek satır (Bildirimlerim)."""
+    id: UUID
+    restaurant_name: Optional[str] = None
+    symptoms: str
+    severity_level: Optional[int] = None
+    status: str
+    report_date: datetime
+
+
+class MyIncidentListResponse(BaseModel):
+    """Öğrencinin kendi vaka listesi yanıtı."""
+    total: int
+    page: int
+    limit: int
+    items: list[MyIncidentListItem]
+
+
 # Admin schemas (TASK-AD-006)
 class AdminIncidentListItem(BaseModel):
     """Admin incident listesi tek satır."""
