@@ -21,7 +21,7 @@
 **Öncelikli sıradaki görevler (özet):**
 - 🟡 Auth guard review: Tüm admin endpoint'lerinde `require_admin` kontrollerini production senaryosu için gözden geçir
 - ✅ Dashboard performansı: `/admin/dashboard/statistics` için Redis cache (10 dk, `DASHBOARD_CACHE_ENABLED`)
-- 🟡 Öğrenci/Yönetici UX: Öğrenci listesinde ekstra aksiyonlar (öğrenci detay, sipariş geçmişine kısayol vb.)
+- ✅ Öğrenci/Yönetici UX: Öğrenci listesinde İşlemler sütununda sadece Detay butonu; detay modal (ESC ile kapanır) içinde sipariş geçmişine git linki; Siparişler sayfası `?search=` ile öğrenci adına göre açılabiliyor
 - 🟡 Mobile Faz 2: Login/Register, Home (Risk Panosu), Order Upload, Order History
 - 🟡 DevOps: Production server, domain + SSL, CI/CD (GitHub Actions)
 

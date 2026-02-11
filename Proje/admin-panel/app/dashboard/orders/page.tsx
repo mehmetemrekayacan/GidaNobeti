@@ -267,6 +267,7 @@ function OrdersTable({
 export default function OrdersPage() {
   const searchParams = useSearchParams();
   const orderIdParam = searchParams.get('order');
+  const studentSearchParam = searchParams.get('search') ?? '';
   const rowRef = useRef<HTMLTableRowElement | null>(null);
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -306,7 +307,7 @@ export default function OrdersPage() {
     };
     fetchOrders();
   }, []);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(studentSearchParam);
   const [restaurantFilter, setRestaurantFilter] = useState('ALL');
   const [methodFilter, setMethodFilter] = useState('ALL');
   const [startDate, setStartDate] = useState('');

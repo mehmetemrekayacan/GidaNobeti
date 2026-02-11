@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui';
-import { Search, Filter, UserCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Search, Filter, UserCircle, CheckCircle, XCircle, ExternalLink, User } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 
 interface Student {
@@ -46,6 +47,7 @@ export default function StudentsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [detailUser, setDetailUser] = useState<Student | null>(null);
   const limit = 20;
 
   const hasMore = total !== null && users.length < total;
@@ -101,6 +103,15 @@ export default function StudentsPage() {
       cancelled = true;
     };
   }, [roleFilter]);
+
+  useEffect(() => {
+    if (!detailUser) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDetailUser(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [detailUser]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -241,12 +252,13 @@ export default function StudentsPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Aktif</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Onaylı</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Kayıt</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">İşlemler</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {users.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-6 py-16 text-center text-gray-500">
+                      <td colSpan={10} className="px-6 py-16 text-center text-gray-500">
                         <UserCircle className="w-12 h-12 mx-auto text-gray-300 mb-3" />
                         <p className="font-medium">Kullanıcı bulunamadı</p>
                         <p className="text-sm mt-1">Farklı arama veya filtre deneyin.</p>
@@ -284,6 +296,15 @@ export default function StudentsPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">{formatDate(user.created_at)}</td>
+                        <td className="px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => setDetailUser(user)}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded"
+                          >
+                            <User className="w-4 h-4" /> Detay
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -308,6 +329,49 @@ export default function StudentsPage() {
               </div>
             )}
           </Card>
+
+          {detailUser && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="detail-title"
+              onClick={() => setDetailUser(null)}
+            >
+              <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between">
+                  <h2 id="detail-title" className="text-lg font-semibold text-gray-900">Öğrenci / Kullanıcı Detayı</h2>
+                  <button
+                    type="button"
+                    onClick={() => setDetailUser(null)}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                    aria-label="Kapat"
+                  >
+                    <XCircle className="w-6 h-6" />
+                  </button>
+                </div>
+                <dl className="grid grid-cols-1 gap-3 text-sm">
+                  <div><dt className="text-gray-500">Ad Soyad</dt><dd className="font-medium text-gray-900">{detailUser.full_name}</dd></div>
+                  <div><dt className="text-gray-500">Email</dt><dd className="text-gray-900">{detailUser.email ?? '—'}</dd></div>
+                  <div><dt className="text-gray-500">Telefon</dt><dd className="text-gray-900">{detailUser.phone_number ?? '—'}</dd></div>
+                  <div><dt className="text-gray-500">Oda</dt><dd className="text-gray-900">{detailUser.room_number ?? '—'}</dd></div>
+                  <div><dt className="text-gray-500">Yurt</dt><dd className="text-gray-900">{detailUser.dorm_name ?? '—'}</dd></div>
+                  <div><dt className="text-gray-500">Rol</dt><dd><span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{ROLE_LABELS[detailUser.role] ?? detailUser.role}</span></dd></div>
+                  <div><dt className="text-gray-500">Aktif</dt><dd>{detailUser.is_active ? <span className="text-green-700">Evet</span> : <span className="text-red-600">Hayır</span>}</dd></div>
+                  <div><dt className="text-gray-500">Onaylı</dt><dd>{detailUser.is_verified ? <span className="text-green-700">Evet</span> : <span className="text-gray-500">Hayır</span>}</dd></div>
+                  <div><dt className="text-gray-500">Kayıt</dt><dd className="text-gray-900">{formatDate(detailUser.created_at)}</dd></div>
+                </dl>
+                <div className="pt-2 flex justify-end">
+                  <Link
+                    href={`/dashboard/orders?search=${encodeURIComponent(detailUser.full_name)}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <ExternalLink className="w-4 h-4" /> Sipariş geçmişine git
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

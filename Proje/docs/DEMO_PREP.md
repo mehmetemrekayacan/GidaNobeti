@@ -167,12 +167,19 @@ flutter run
 - Arama ve filtrelemenin anlık çalıştığı
 
 #### Siparişler Sayfası
-- ✅ UI hazır (mock data ile)
-- ⚠️ Backend endpoint'i eksik (gösterilemez ama UI görülebilir)
+- ✅ Gerçek API (`GET /admin/orders`) + sayfalama (Daha fazla yükle)
+- ✅ Demo veri fallback; CSV export (UTF-8 BOM)
+- ✅ URL ile öğrenci adına göre açılış: `?search=Ad Soyad`
 
 **Gösterilecek:**
-- UI tasarımı ve kullanılabilirliği
-- CSV export özelliği (mock data ile)
+- UI, filtreler, CSV export, öğrenci adına göre link (Öğrenciler sayfasından)
+
+#### Öğrenciler Sayfası
+- ✅ Gerçek API (`GET /admin/users`), rol filtresi (varsayılan: Öğrenci)
+- ✅ Detay butonu → modal (ESC ile kapanır), modal içinde "Sipariş geçmişine git" → Siparişler `?search=` ile
+
+**Gösterilecek:**
+- Kullanıcı listesi, arama, Detay modal, sipariş geçmişine kısayol
 
 ---
 
