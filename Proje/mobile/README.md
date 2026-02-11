@@ -5,22 +5,23 @@ Flutter mobil uygulama projesi.
 ## 🚀 Başlangıç
 
 ### Gereksinimler
-- Flutter 3.38.7+
-- Dart 3.10.7+
-- Android Studio (Android development için)
-- Xcode (iOS development için - Mac)
+- Flutter 3.x+ (Dart 3.x+)
+- Android Studio (Android emulator için)
+- Backend çalışıyor olmalı: `docker-compose up -d` (Proje kökünde)
 
-### Kurulum
+### Android Studio ile çalıştırma (kısa)
 
-1. **Dependencies yükle:**
+1. **Backend:** `Proje` dizininde `docker-compose up -d`
+2. **Emulator:** Android Studio → Device Manager → bir cihaz seçip ▶️ ile başlat
+3. **Mobil:**
 ```bash
+cd Proje/mobile
 flutter pub get
-```
-
-2. **Uygulamayı çalıştır:**
-```bash
 flutter run
 ```
+Emulator açıksa uygulama orada açılır. Test girişi: TCKN `12345678901`, Şifre `Test123!` (seed verisi gerekir).
+
+**Detaylı adımlar ve sorun giderme:** `Proje/docs/MOBILE_RUN.md`
 
 ## 📁 Proje Yapısı
 

@@ -81,6 +81,30 @@ class DioClient {
     }
   }
 
+  /// POST multipart file (e.g. receipt image upload)
+  Future<Response> postMultipart(
+    String path, {
+    required String filePath,
+    String fieldName = 'file',
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        fieldName: await MultipartFile.fromFile(filePath),
+      });
+      return await _dio.post(
+        path,
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// PUT request
   Future<Response> put(
     String path, {

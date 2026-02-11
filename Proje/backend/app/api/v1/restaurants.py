@@ -78,42 +78,13 @@ async def list_restaurants(
     return restaurants
 
 
-@router.get("/{restaurant_id}", response_model=RestaurantResponse)
-async def get_restaurant(
-    restaurant_id: int,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Get detailed information about a specific restaurant
-    
-    - **restaurant_id**: Restaurant ID
-    """
-    query = select(Restaurant).where(Restaurant.id == restaurant_id)
-    result = await db.execute(query)
-    restaurant = result.scalar_one_or_none()
-    
-    if not restaurant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Restaurant not found"
-        )
-    
-    return restaurant
-
-
 @router.get("/risky", response_model=list[RestaurantListItem])
 async def get_risky_restaurants(
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get list of risky restaurants (WATCHLIST, RED_FLAG, BLACKLISTED).
-    
-    This endpoint is used by the mobile app home screen to display
-    restaurants that students should avoid.
-    
-    Returns restaurants ordered by:
-    1. Total complaints (descending)
-    2. Risk status severity (RED_FLAG > WATCHLIST > BLACKLISTED)
+    Must be defined before /{restaurant_id} so that "risky" is not matched as id.
     """
     query = select(Restaurant).where(
         Restaurant.current_risk_status.in_([
@@ -176,6 +147,27 @@ async def get_restaurant_stats(
         "risk_status_breakdown": risk_breakdown,
         "platform_breakdown": platform_breakdown
     }
+
+
+@router.get("/{restaurant_id}", response_model=RestaurantResponse)
+async def get_restaurant(
+    restaurant_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get detailed information about a specific restaurant.
+    """
+    query = select(Restaurant).where(Restaurant.id == restaurant_id)
+    result = await db.execute(query)
+    restaurant = result.scalar_one_or_none()
+    
+    if not restaurant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Restaurant not found"
+        )
+    
+    return restaurant
 
 
 @router.post("", response_model=RestaurantResponse, status_code=status.HTTP_201_CREATED)

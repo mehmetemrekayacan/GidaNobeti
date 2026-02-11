@@ -18,7 +18,8 @@ _reader = None
 
 # Max image size: 5MB (KVKK requirement)
 MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
-MAX_IMAGE_DIMENSION = 1920
+# Fiş metni için 1280 yeterli; daha küçük = daha hızlı OCR
+MAX_IMAGE_DIMENSION = 1280
 
 
 def _get_reader():
@@ -78,17 +79,13 @@ def extract_text(image_bytes: bytes) -> Tuple[str, float]:
     # Preprocess (RAM only)
     img_array = _preprocess_image(image_bytes)
 
-    # OCR
+    # OCR (detail=0: sadece metin listesi döner, bbox yok → daha hızlı)
     reader = _get_reader()
-    result = reader.readtext(img_array)
+    result = reader.readtext(img_array, detail=0)
 
-    # Combine text and compute confidence
-    lines = []
-    confidences = []
-    for (bbox, text, conf) in result:
-        if text.strip():
-            lines.append(text.strip())
-            confidences.append(conf)
+    # detail=0 → result list of strings
+    lines = [t.strip() for t in result if isinstance(t, str) and t.strip()]
+    confidences = [1.0] * len(lines) if lines else []
 
     raw_text = "\n".join(lines) if lines else ""
     avg_confidence = (sum(confidences) / len(confidences) * 100) if confidences else 0.0

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/api/services/restaurant_api_service.dart';
+import '../../../core/api/models/restaurant_models.dart';
 import '../../auth/bloc/auth_bloc.dart';
+import '../../restaurant/screens/restaurant_detail_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -114,6 +117,80 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
+          // Risk Panosu - Riskli Restoranlar
+          const Text(
+            'Risk Panosu',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          FutureBuilder<List<Restaurant>>(
+            future: RestaurantApiService().getRiskyRestaurants(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                );
+              }
+              if (snapshot.hasError) {
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'Riskli restoranlar yüklenemedi: ${snapshot.error}',
+                      style: TextStyle(color: Colors.red[700]),
+                    ),
+                  ),
+                );
+              }
+              final list = snapshot.data ?? [];
+              if (list.isEmpty) {
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'Şu an riskli restoran bulunmuyor.',
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ),
+                );
+              }
+              return Card(
+                child: Column(
+                  children: [
+                    ...list.take(5).map((r) => ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: _riskColor(r.riskStatus),
+                        child: Icon(Icons.warning_amber, color: Colors.white, size: 20),
+                      ),
+                      title: Text(r.name),
+                      subtitle: Text(_riskLabel(r.riskStatus)),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => RestaurantDetailScreen(restaurantId: r.id),
+                          ),
+                        );
+                      },
+                    )),
+                    if (list.length > 5)
+                      TextButton(
+                        onPressed: () => Navigator.pushNamed(context, '/risky-restaurants'),
+                        child: const Text('Tümünü gör'),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+
           // Quick Actions
           const Text(
             'Hızlı İşlemler',
@@ -145,33 +222,21 @@ class HomeScreen extends StatelessWidget {
                 icon: Icons.restaurant,
                 title: 'Riskli Restoranlar',
                 color: Colors.red,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Yakında...')),
-                  );
-                },
+                onTap: () => Navigator.pushNamed(context, '/risky-restaurants'),
               ),
               _buildQuickActionCard(
                 context,
                 icon: Icons.upload_file,
                 title: 'Sipariş Yükle',
                 color: Colors.blue,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Yakında...')),
-                  );
-                },
+                onTap: () => Navigator.pushNamed(context, '/order-upload'),
               ),
               _buildQuickActionCard(
                 context,
                 icon: Icons.history,
                 title: 'Geçmiş',
                 color: Colors.green,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Yakında...')),
-                  );
-                },
+                onTap: () => Navigator.pushNamed(context, '/order-history'),
               ),
               _buildQuickActionCard(
                 context,
@@ -246,6 +311,31 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _riskColor(RiskStatus status) {
+    switch (status) {
+      case RiskStatus.redFlag:
+      case RiskStatus.blacklisted:
+        return Colors.red;
+      case RiskStatus.watchlist:
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _riskLabel(RiskStatus status) {
+    switch (status) {
+      case RiskStatus.redFlag:
+        return 'Yüksek risk';
+      case RiskStatus.blacklisted:
+        return 'Yasaklı';
+      case RiskStatus.watchlist:
+        return 'İzleme listesinde';
+      default:
+        return 'Bilgi yok';
+    }
   }
 
   String _getRoleName(dynamic role) {

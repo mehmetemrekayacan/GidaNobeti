@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../core/api/services/auth_api_service.dart';
-import '../../../core/api/models/auth_models.dart';
+import '../../../core/api/models/auth_models.dart' show LoginRequest, RegisterRequest, TokenResponse, User;
 
 part 'auth_event.dart';
 part 'auth_state.dart';
@@ -17,7 +17,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLogoutRequested>(_onAuthLogoutRequested);
   }
 
-  /// Check if user is already authenticated on app start
+  /// Check if user is already authenticated on app start (restore session)
   Future<void> _onAuthCheckRequested(
     AuthCheckRequested event,
     Emitter<AuthState> emit,
@@ -25,12 +25,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
 
     try {
-      final isAuth = await _authService.isAuthenticated();
-      
-      if (isAuth) {
-        // Token exists - user is authenticated
-        // Note: You may want to fetch user profile here
-        emit(const AuthUnauthenticated()); // Temporary until we add profile API
+      final token = await _authService.getStoredToken();
+      final userJson = await _authService.getStoredUserJson();
+      if (token != null && token.isNotEmpty && userJson != null) {
+        final user = User.fromJson(userJson);
+        emit(AuthAuthenticated(user: user, token: token));
       } else {
         emit(const AuthUnauthenticated());
       }

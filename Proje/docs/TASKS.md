@@ -22,7 +22,7 @@
 - ✅ Auth guard review: Tüm `/v1/admin/*` endpoint'leri `require_admin` (DORM_MANAGER veya SYS_ADMIN) ile korunuyor
 - ✅ Dashboard performansı: `/admin/dashboard/statistics` için Redis cache (10 dk, `DASHBOARD_CACHE_ENABLED`)
 - ✅ Öğrenci/Yönetici UX: Öğrenci listesinde İşlemler sütununda sadece Detay butonu; detay modal (ESC ile kapanır) içinde sipariş geçmişine git linki; Siparişler sayfası `?search=` ile öğrenci adına göre açılabiliyor
-- 🟡 Mobile Faz 2: Login/Register, Home (Risk Panosu), Order Upload, Order History
+- ✅ Mobile Faz 2: Login/Register (session restore), Home Risk Panosu (risky list), Sipariş Yükle (kamera/galeri), Sipariş Geçmişi
 - 🟡 DevOps: Production server, domain + SSL, CI/CD (GitHub Actions)
 
 Detaylar aşağıdaki ilgili task başlıklarında (Backend, Admin Panel, Mobile, DevOps) işlenmiştir.

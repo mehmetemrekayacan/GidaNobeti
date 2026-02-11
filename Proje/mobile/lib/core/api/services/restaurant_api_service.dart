@@ -47,6 +47,22 @@ class RestaurantApiService {
     }
   }
 
+  /// Get risky restaurants (WATCHLIST, RED_FLAG, BLACKLISTED) for home Risk Panosu
+  Future<List<Restaurant>> getRiskyRestaurants() async {
+    try {
+      final response = await _dioClient.get('/v1/restaurants/risky');
+      if (response.data is List) {
+        return (response.data as List)
+            .map((json) =>
+                Restaurant.fromJson(json as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// Get single restaurant by ID
   Future<Restaurant> getRestaurant(int restaurantId) async {
     try {

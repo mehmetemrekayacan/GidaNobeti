@@ -1,9 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dart:convert';
+
 /// JWT Token Interceptor - Automatically inject token into requests
 class AuthInterceptor extends Interceptor {
   static const String _tokenKey = 'auth_token';
+  static const String _userKey = 'auth_user';
 
   @override
   void onRequest(
@@ -26,11 +29,10 @@ class AuthInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // Handle 401 Unauthorized - token expired or invalid
     if (err.response?.statusCode == 401) {
-      // Clear token and redirect to login
+      // Clear token and user
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_tokenKey);
-      
-      // You can add navigation logic here or emit an event
+      await prefs.remove(_userKey);
     }
 
     handler.next(err);
@@ -42,15 +44,34 @@ class AuthInterceptor extends Interceptor {
     await prefs.setString(_tokenKey, token);
   }
 
+  /// Save user JSON (for session restore)
+  static Future<void> saveUser(Map<String, dynamic> userJson) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userKey, jsonEncode(userJson));
+  }
+
   /// Get token from storage
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
   }
 
-  /// Clear token from storage
+  /// Get saved user JSON (for session restore)
+  static Future<Map<String, dynamic>?> getUserJson() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_userKey);
+    if (raw == null) return null;
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Clear token and user from storage
   static Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    await prefs.remove(_userKey);
   }
 }
