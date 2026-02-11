@@ -1603,25 +1603,16 @@ Nginx ile load balancing ve SSL termination.
 #### TASK-DO-004: CI/CD Pipeline (GitHub Actions) 🟢 P2
 **Süre:** 5 saat  
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** 🚧 In Progress
 
 **Açıklama:**
 Otomatik deploy pipeline.
 
 **Checklist:**
-- [ ] `.github/workflows/deploy.yml`
-- [ ] Steps:
-  - [ ] Run tests (pytest)
-  - [ ] Build Docker image
-  - [ ] Push to Docker Hub/Registry
-  - [ ] SSH to server
-  - [ ] Pull latest image
-  - [ ] Docker Compose up (rolling update)
-- [ ] Secrets:
-  - [ ] SERVER_IP
-  - [ ] SSH_KEY
-  - [ ] DOCKER_HUB_TOKEN
-- [ ] Trigger: Push to `main` branch
+- [x] `.github/workflows/ci.yml` (test + Docker build)
+- [x] Steps: Run tests (pytest + PostgreSQL + Redis), Seed data, Build Docker image
+- [ ] Deploy adımı (opsiyonel): Push to registry, SSH, docker-compose up (secrets: SERVER_IP, SSH_KEY, DOCKER_HUB_TOKEN)
+- [x] Trigger: Push/PR to `main` branch
 
 **Acceptance Criteria:**
 - Push to main → otomatik deploy

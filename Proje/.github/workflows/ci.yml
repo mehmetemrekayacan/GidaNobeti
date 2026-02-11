@@ -1,0 +1,90 @@
+# CI: Backend tests (pytest) on push/PR
+# TASK-DO-004 (CI/CD) - Test aşaması; deploy için secrets sonra eklenir
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: gidanobeti
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: gidanobeti_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gidanobeti"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://gidanobeti:testpass@localhost:5432/gidanobeti_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: ci-test-secret-key
+          TESTING: "1"
+        run: |
+          cd backend
+          alembic upgrade head
+
+      - name: Seed test data
+        env:
+          DATABASE_URL: postgresql+asyncpg://gidanobeti:testpass@localhost:5432/gidanobeti_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: ci-test-secret-key
+        run: |
+          cd backend
+          python seed_restaurants.py
+
+      - name: Run pytest
+        env:
+          DATABASE_URL: postgresql+asyncpg://gidanobeti:testpass@localhost:5432/gidanobeti_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: ci-test-secret-key
+          TESTING: "1"
+        run: |
+          cd backend
+          pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=50
+
+  docker-build:
+    name: Docker build (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t gidanobeti-api:ci ./backend

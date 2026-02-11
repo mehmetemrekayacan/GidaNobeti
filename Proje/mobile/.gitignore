@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Test receipt images (local, .cursorignore'da da görseller ignore)
+/test_receipts/
