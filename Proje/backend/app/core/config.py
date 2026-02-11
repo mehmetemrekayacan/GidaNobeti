@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     
     # Testing - pytest sırasında rate limit bypass
     TESTING: bool = False
+
+    # Dashboard stats cache (Redis) - DEBUG=True olsa bile açılabilir
+    DASHBOARD_CACHE_ENABLED: bool = True
     
     # Sentry (TASK-BE-019) - opsiyonel, boşsa devre dışı
     SENTRY_DSN: str | None = None

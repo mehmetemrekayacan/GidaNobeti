@@ -50,6 +50,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: your-super-secret-jwt-key-change-this
       DEBUG: "True"
+      DASHBOARD_CACHE_ENABLED: "True"
       ENVIRONMENT: development
     volumes:
       - ./backend:/app

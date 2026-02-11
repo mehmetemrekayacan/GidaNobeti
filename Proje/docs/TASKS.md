@@ -20,7 +20,7 @@
 
 **Öncelikli sıradaki görevler (özet):**
 - 🟡 Auth guard review: Tüm admin endpoint'lerinde `require_admin` kontrollerini production senaryosu için gözden geçir
-- 🟡 Dashboard performansı: `/admin/dashboard/statistics` için Redis cache (ör. 10 dk)
+- ✅ Dashboard performansı: `/admin/dashboard/statistics` için Redis cache (10 dk, `DASHBOARD_CACHE_ENABLED`)
 - 🟡 Öğrenci/Yönetici UX: Öğrenci listesinde ekstra aksiyonlar (öğrenci detay, sipariş geçmişine kısayol vb.)
 - 🟡 Mobile Faz 2: Login/Register, Home (Risk Panosu), Order Upload, Order History
 - 🟡 DevOps: Production server, domain + SSL, CI/CD (GitHub Actions)
@@ -622,7 +622,7 @@ Yurt müdürü dashboard için istatistikler.
   - [x] Incidents by restaurant
   - [x] Daily breakdown (chart için)
 - [ ] PostgreSQL View (ileride performance için)
-- [ ] Cache (Redis, 10 dakika) (ileride)
+- [x] Cache (Redis, 10 dakika)
 
 **Acceptance Criteria:**
 - ✅ Response <500ms
@@ -1403,9 +1403,9 @@ Restoran listesi ve risk yönetimi.
 - [x] Stats cards (5 adet - toplam, güvenli, izlemede, riskli, yasaklı)
 - [x] Mock data (5 restoran örneği)
 - [x] Sidebar active state (mavi highlight)
-- [ ] API calls (backend hazır olunca):
-  - [ ] `GET /admin/restaurants`
-  - [ ] `PUT /admin/restaurants/{id}/risk-status`
+- [x] API calls:
+  - [x] `GET /restaurants` (liste)
+  - [x] `PUT /admin/restaurants/{id}/risk-status`
 
 **Tamamlanma Notları:**
 - Responsive table design
@@ -1420,9 +1420,9 @@ Restoran listesi ve risk yönetimi.
 - ✅ Risk statü güncellenebiliyor (mock)
 - ✅ Arama ve filtreleme çalışıyor
 - ✅ Sidebar active state gösteriliyor
-- ⏸️ Backend API entegrasyonu bekliyor
+- ✅ Backend API entegre
 
-**Dependencies:** TASK-AD-002, [TASK-BE-017 - Beklemede]
+**Dependencies:** TASK-AD-002, TASK-BE-017
 
 ---
 
@@ -1452,7 +1452,7 @@ Tüm siparişleri görme ve arama.
 - [x] Export CSV butonu (UTF-8 BOM)
 - [x] Stats cards (4 adet)
 - [x] Mock data (12 sipariş)
-- [ ] API: `GET /admin/orders` (backend hazır olunca)
+- [x] API: `GET /admin/orders` + sayfalama (Daha fazla yükle)
 
 **Tamamlanma Notları:**
 - Responsive table design
@@ -1469,7 +1469,7 @@ Tüm siparişleri görme ve arama.
 - ✅ CSV export ediliyor (Türkçe karakter desteği)
 - ✅ Pagination düzgün çalışıyor
 - ✅ Tüm filtreler çalışıyor
-- ⏸️ Backend API entegrasyonu bekliyor
+- ✅ Backend API entegre
 
 **Dependencies:** TASK-AD-002
 

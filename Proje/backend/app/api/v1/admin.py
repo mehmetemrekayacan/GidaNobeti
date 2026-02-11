@@ -4,15 +4,19 @@ Admin API Endpoints - Dashboard & Management (TASK-BE-007, TASK-AD-006)
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from redis.asyncio import from_url as redis_from_url
 
+from app.core.config import settings
 from app.db.session import get_db
 from app.db.models.restaurant import Restaurant, RiskStatus
 from app.db.models.order import Order
-from app.db.models.user import User
+from app.db.models.user import User, UserRole
 from app.db.models.incident import HealthIncident, ReportStatus
 from app.core.deps import require_admin
 from app.schemas.incident import (
@@ -22,9 +26,15 @@ from app.schemas.incident import (
 )
 from app.schemas.order import AdminOrderListItem, AdminOrderListResponse
 from app.schemas.auth import AdminUserListItem, AdminUserListResponse
-from app.db.models.user import UserRole
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+# Shared Redis client for lightweight caching (dashboard stats, etc.)
+redis_client = redis_from_url(
+    settings.REDIS_URL,
+    encoding="utf-8",
+    decode_responses=True,
+)
 
 
 @router.get("/dashboard/statistics")
@@ -44,6 +54,18 @@ async def get_dashboard_statistics(
     - Incidents by restaurant
     - Daily breakdown for charts
     """
+    cache_key = f"admin:dashboard:stats:{period}"
+
+    # Try Redis cache when enabled (DASHBOARD_CACHE_ENABLED); skip in TESTING
+    if settings.DASHBOARD_CACHE_ENABLED and not settings.TESTING:
+        cached = await redis_client.get(cache_key)
+        if cached:
+            try:
+                return json.loads(cached)
+            except json.JSONDecodeError:
+                # Corrupt cache; ignore and recompute
+                pass
+
     # Calculate date range
     now = datetime.now()
     if period == "last_7_days":
@@ -134,16 +156,26 @@ async def get_dashboard_statistics(
         }
         for date, orders, incidents in daily_breakdown_result.all()
     ]
-    
-    return {
+
+    response_payload = {
         "period": period,
         "total_orders": total_orders,
         "total_students": active_students,
         "total_incidents": total_incidents,
         "top_restaurants": top_restaurants,
         "incidents_by_restaurant": incidents_by_restaurant,
-        "daily_breakdown": daily_breakdown
+        "daily_breakdown": daily_breakdown,
     }
+
+    # Store in Redis for 10 minutes (600s)
+    if settings.DASHBOARD_CACHE_ENABLED and not settings.TESTING:
+        try:
+            await redis_client.set(cache_key, json.dumps(response_payload), ex=600)
+        except Exception:
+            # Cache failure should never break the endpoint
+            pass
+
+    return response_payload
 
 
 @router.put("/restaurants/{restaurant_id}/risk-status")
