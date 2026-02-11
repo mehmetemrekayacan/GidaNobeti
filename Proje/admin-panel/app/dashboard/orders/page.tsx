@@ -273,19 +273,32 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDemoData, setIsDemoData] = useState(false);
+  const [apiPage, setApiPage] = useState(1);
+  const [totalFromApi, setTotalFromApi] = useState<number | null>(null);
+  const [hasMorePages, setHasMorePages] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const PAGE_SIZE = 100;
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
         setIsDemoData(false);
-        const res = await apiClient.get('/admin/orders', { params: { page: 1, limit: 100 } });
+        const res = await apiClient.get('/admin/orders', { params: { page: 1, limit: PAGE_SIZE } });
         const items = (res.data.items || []).map(mapApiOrder);
+        const total = typeof res.data.total === 'number' ? res.data.total : items.length;
         setOrders(items);
+        setTotalFromApi(total);
+        setApiPage(1);
+        setHasMorePages(items.length < total);
         setError(null);
       } catch {
         setOrders(mockOrders);
         setIsDemoData(true);
+        setTotalFromApi(mockOrders.length);
+        setApiPage(1);
+        setHasMorePages(false);
         setError(null);
       } finally {
         setLoading(false);
@@ -395,6 +408,35 @@ export default function OrdersPage() {
     totalAmount: orders.reduce((sum, o) => sum + o.amount, 0),
     screenshots: orders.filter((o) => o.method === 'SCREENSHOT').length,
     receipts: orders.filter((o) => o.method === 'RECEIPT').length,
+  };
+
+  const handleLoadMore = async () => {
+    if (isDemoData || !hasMorePages || loadingMore) return;
+
+    try {
+      setLoadingMore(true);
+      const nextPage = apiPage + 1;
+      const res = await apiClient.get('/admin/orders', {
+        params: { page: nextPage, limit: PAGE_SIZE },
+      });
+      const newItems = (res.data.items || []).map(mapApiOrder);
+      const total = typeof res.data.total === 'number' ? res.data.total : totalFromApi ?? 0;
+
+      setOrders((prev) => {
+        const existingIds = new Set(prev.map((o) => o.id));
+        const deduped = newItems.filter((o) => !existingIds.has(o.id));
+        const merged = [...prev, ...deduped];
+        setTotalFromApi(total || merged.length);
+        setHasMorePages(merged.length < (total || merged.length));
+        return merged;
+      });
+
+      setApiPage(nextPage);
+    } catch (err) {
+      console.error('Daha fazla sipariş yüklenirken hata oluştu', err);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   if (loading) {
@@ -563,6 +605,30 @@ export default function OrdersPage() {
           </div>
         </div>
       </Card>
+
+      {/* Load more & info (API paging) */}
+      {!isDemoData && (
+        <div className="flex items-center justify-between text-sm text-gray-700">
+          <div>
+            Yüklenen:{' '}
+            <span className="font-medium">
+              {orders.length}
+            </span>
+            {totalFromApi !== null && (
+              <> / {totalFromApi}</>
+            )}
+          </div>
+          {hasMorePages && (
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 font-medium transition-colors"
+            >
+              {loadingMore ? 'Yükleniyor...' : 'Daha fazla yükle'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Table - key resets page to 1 when filters change */}
       <OrdersTable

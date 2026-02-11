@@ -61,6 +61,7 @@ class RestaurantListItem(BaseModel):
     district: Optional[str]
     platform_origin: Optional[str]
     current_risk_status: RiskStatus
+    risk_reason: Optional[str] = None
     avg_rating: Optional[float]
     total_orders: int
     total_complaints: int = 0
