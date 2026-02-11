@@ -21,6 +21,8 @@ from app.schemas.incident import (
     AdminIncidentUpdateRequest,
 )
 from app.schemas.order import AdminOrderListItem, AdminOrderListResponse
+from app.schemas.auth import AdminUserListItem, AdminUserListResponse
+from app.db.models.user import UserRole
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -298,6 +300,69 @@ async def list_admin_orders(
     ]
 
     return AdminOrderListResponse(total=total, page=page, limit=limit, items=items)
+
+
+# --- Admin Users List (Öğrenci / kullanıcı listesi) ---
+
+
+@router.get("/users", response_model=AdminUserListResponse)
+async def list_admin_users(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    role: Optional[str] = Query(None, description="Filter by role: STUDENT, DORM_MANAGER, SECURITY, SYS_ADMIN"),
+    search: Optional[str] = Query(None, description="Search by full name (case-insensitive)"),
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Tüm kullanıcıları listele (Admin). Öğrenci listesi için role=STUDENT kullanın.
+    TCKN ve şifre döndürülmez.
+    """
+    conditions = []
+    if role:
+        try:
+            role_enum = UserRole(role)
+            conditions.append(User.role == role_enum)
+        except ValueError:
+            pass
+    if search and search.strip():
+        pattern = f"%{search.strip()}%"
+        conditions.append(User.full_name.ilike(pattern))
+
+    count_stmt = select(func.count(User.id))
+    if conditions:
+        count_stmt = count_stmt.where(and_(*conditions))
+    total = (await db.execute(count_stmt)).scalar_one() or 0
+
+    offset = (page - 1) * limit
+    stmt = (
+        select(User)
+        .options(selectinload(User.dormitory))
+        .order_by(User.created_at.desc())
+    )
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    stmt = stmt.offset(offset).limit(limit)
+    result = await db.execute(stmt)
+    users = result.scalars().all()
+
+    items = [
+        AdminUserListItem(
+            id=str(u.id),
+            full_name=u.full_name,
+            email=u.email,
+            phone_number=u.phone_number,
+            room_number=u.room_number,
+            role=u.role.value,
+            is_active=u.is_active,
+            is_verified=u.is_verified,
+            dorm_name=u.dormitory.name if u.dormitory else None,
+            created_at=u.created_at,
+        )
+        for u in users
+    ]
+
+    return AdminUserListResponse(total=total, page=page, limit=limit, items=items)
 
 
 @router.put("/incidents/{incident_id}")

@@ -6,7 +6,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { removeToken } from '@/lib/auth';
-import { LayoutDashboard, Users, UtensilsCrossed, AlertTriangle, LogOut, LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Users, UtensilsCrossed, AlertTriangle, LogOut, LucideIcon, UserCircle } from 'lucide-react';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -23,6 +23,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+    { icon: UserCircle, label: 'Öğrenciler', href: '/dashboard/students' },
     { icon: UtensilsCrossed, label: 'Restoranlar', href: '/dashboard/restaurants' },
     { icon: Users, label: 'Siparişler', href: '/dashboard/orders' },
     { icon: AlertTriangle, label: 'Vakalar', href: '/dashboard/incidents' },

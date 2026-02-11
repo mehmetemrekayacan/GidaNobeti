@@ -106,3 +106,28 @@ class UserResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+# --- Admin User List (no sensitive data) ---
+
+
+class AdminUserListItem(BaseModel):
+    """Admin list item - no tckn_hash, no password."""
+    id: str  # UUID as string
+    full_name: str
+    email: str | None
+    phone_number: str | None
+    room_number: str | None
+    role: str  # UserRole.value
+    is_active: bool
+    is_verified: bool
+    dorm_name: str | None
+    created_at: datetime
+
+
+class AdminUserListResponse(BaseModel):
+    """Paginated admin user list."""
+    total: int
+    page: int
+    limit: int
+    items: list[AdminUserListItem]
