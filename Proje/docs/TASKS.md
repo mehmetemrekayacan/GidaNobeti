@@ -6,6 +6,29 @@
 
 ---
 
+## 🧭 Güncel Durum Özeti (Şubat 2026)
+
+**Son tamamlanan (admin + demo UI) işleri:**
+- ✅ Orders sayfası gerçek API bağlantısı (`GET /admin/orders`)
+- ✅ Orders sayfasında backend destekli sayfalama + \"Daha fazla yükle\" butonu
+- ✅ Orders sayfasında demo veri fallback + \"Demo veri\" etiketi
+- ✅ Dashboard periyot seçimi (Son 7 gün / Son 30 gün) + gerçek API (`GET /admin/dashboard/statistics`)
+- ✅ Restaurants sayfası gerçek API bağlantısı (`GET /restaurants`, `PUT /admin/restaurants/{id}/risk-status`)
+- ✅ `RestaurantListItem` şemasına `risk_reason` alanı eklendi, admin panelde gösteriliyor
+- ✅ Incidents yönetim sayfası (`GET/PUT /admin/incidents`) admin panel ile entegre
+- ✅ Admin kullanıcı listesi: `GET /admin/users` + `/dashboard/students` sayfası (Öğrenciler)
+
+**Öncelikli sıradaki görevler (özet):**
+- 🟡 Auth guard review: Tüm admin endpoint'lerinde `require_admin` kontrollerini production senaryosu için gözden geçir
+- 🟡 Dashboard performansı: `/admin/dashboard/statistics` için Redis cache (ör. 10 dk)
+- 🟡 Öğrenci/Yönetici UX: Öğrenci listesinde ekstra aksiyonlar (öğrenci detay, sipariş geçmişine kısayol vb.)
+- 🟡 Mobile Faz 2: Login/Register, Home (Risk Panosu), Order Upload, Order History
+- 🟡 DevOps: Production server, domain + SSL, CI/CD (GitHub Actions)
+
+Detaylar aşağıdaki ilgili task başlıklarında (Backend, Admin Panel, Mobile, DevOps) işlenmiştir.
+
+---
+
 ## 📋 İÇİNDEKİLER
 
 1. [Task Kategorileri](#1-task-kategorileri)
