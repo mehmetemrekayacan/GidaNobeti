@@ -117,6 +117,7 @@ Endpoint (orders.py)
 - **TCKN:** Hash'lenerek saklanır (`tckn_hash`).
 - **JWT:** `python-jose` ile access token.
 - **Rate Limit:** `slowapi` + Redis.
+- **Admin API:** Tüm `/v1/admin/*` endpoint'leri `require_admin` (DORM_MANAGER veya SYS_ADMIN) ile korunur (`app.core.deps.require_admin`).
 
 ---
 

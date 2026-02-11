@@ -19,7 +19,7 @@
 - ✅ Admin kullanıcı listesi: `GET /admin/users` + `/dashboard/students` sayfası (Öğrenciler)
 
 **Öncelikli sıradaki görevler (özet):**
-- 🟡 Auth guard review: Tüm admin endpoint'lerinde `require_admin` kontrollerini production senaryosu için gözden geçir
+- ✅ Auth guard review: Tüm `/v1/admin/*` endpoint'leri `require_admin` (DORM_MANAGER veya SYS_ADMIN) ile korunuyor
 - ✅ Dashboard performansı: `/admin/dashboard/statistics` için Redis cache (10 dk, `DASHBOARD_CACHE_ENABLED`)
 - ✅ Öğrenci/Yönetici UX: Öğrenci listesinde İşlemler sütununda sadece Detay butonu; detay modal (ESC ile kapanır) içinde sipariş geçmişine git linki; Siparişler sayfası `?search=` ile öğrenci adına göre açılabiliyor
 - 🟡 Mobile Faz 2: Login/Register, Home (Risk Panosu), Order Upload, Order History
@@ -310,6 +310,7 @@ JWT token doğrulama middleware ve role-based access control.
 **Tamamlanma Notları:**
 - Admin endpoint'leri (dashboard, risk-status) require_admin ile korundu
 - require_roles(UserRole.X, UserRole.Y) ile esnek rol kontrolü
+- Auth guard review: Tüm `/v1/admin/*` route'ları (6 endpoint) require_admin ile korunuyor: dashboard/statistics, restaurants/{id}/risk-status, incidents, incidents/{id}, orders, users
 
 **Dependencies:** TASK-BE-006
 
