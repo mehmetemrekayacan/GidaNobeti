@@ -95,24 +95,37 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
 
   void _checkAndShowRiskWarning(OrderUploadResponse response) {
     // Backend'den gelen warning mesajı formatı: "Dikkat: {restaurant.name} riskli restoran listesinde!"
-    final riskWarning = response.warnings.firstWhere(
-      (w) => w.contains('riskli restoran') || w.contains('Dikkat'),
-      orElse: () => '',
-    );
-    if (riskWarning.isNotEmpty) {
+    if (response.warnings.isEmpty) return;
+    
+    // Risk uyarısı içeren warning'i bul
+    String? riskWarning;
+    for (final w in response.warnings) {
+      if (w.contains('riskli restoran') || w.contains('Dikkat')) {
+        riskWarning = w;
+        break;
+      }
+    }
+    
+    if (riskWarning != null && riskWarning.isNotEmpty) {
       // Restaurant name'i çıkar: "Dikkat: Restoran Adı riskli restoran listesinde!"
       String restaurantName = response.restaurantName ?? 'Bilinmeyen Restoran';
       final match = RegExp(r'Dikkat:\s*(.+?)\s*riskli').firstMatch(riskWarning);
-      if (match != null) {
-        restaurantName = match.group(1) ?? restaurantName;
+      if (match != null && match.group(1) != null) {
+        restaurantName = match.group(1)!.trim();
       }
+      
+      // Dialog'u bir sonraki frame'de göster
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          RiskWarningDialog.show(
-            context,
-            restaurantName: restaurantName,
-            riskReason: riskWarning,
-          );
+          try {
+            RiskWarningDialog.show(
+              context,
+              restaurantName: restaurantName,
+              riskReason: riskWarning,
+            );
+          } catch (e) {
+            debugPrint('RiskWarningDialog gösterilirken hata: $e');
+          }
         }
       });
     }
