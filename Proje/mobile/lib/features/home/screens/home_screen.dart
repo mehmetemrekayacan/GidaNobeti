@@ -11,6 +11,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Gıda Nöbeti'),
         backgroundColor: Colors.orange,
@@ -34,7 +35,27 @@ class HomeScreen extends StatelessWidget {
         child: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
             if (state is AuthAuthenticated) {
-              return _buildHomeContent(context, state);
+              try {
+                return _buildHomeContent(context, state);
+              } catch (e) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Sayfa yüklenirken hata oluştu: $e',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.red[700]),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
             }
 
             return const Center(
