@@ -31,12 +31,15 @@ class MyApp extends StatelessWidget {
     final dioClient = DioClient();
     final authApiService = AuthApiService(dioClient);
 
+    // Setup 401 handler - logout on token expiration
+    final authBloc = AuthBloc(authApiService)..add(const AuthCheckRequested());
+    DioClient.onUnauthorized = () {
+      authBloc.add(const AuthLogoutRequested());
+    };
+
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (context) => AuthBloc(authApiService)
-            ..add(const AuthCheckRequested()),
-        ),
+        BlocProvider.value(value: authBloc),
       ],
       child: MaterialApp(
         title: 'Gıda Nöbeti',

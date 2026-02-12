@@ -6,6 +6,9 @@ import 'interceptors/logging_interceptor.dart';
 
 /// Dio HTTP client configuration
 class DioClient {
+  /// Callback for 401 Unauthorized errors (token expired)
+  static void Function()? onUnauthorized;
+
   // Platform-specific base URL
   static String get _baseUrl {
     if (kIsWeb) {
@@ -163,6 +166,12 @@ class DioClient {
   Exception _handleResponseError(Response response) {
     final statusCode = response.statusCode ?? 0;
     final message = response.data?['detail'] ?? 'Unknown error';
+
+    // Handle 401 Unauthorized - trigger logout callback
+    if (statusCode == 401) {
+      onUnauthorized?.call();
+      return ClientException(message, statusCode);
+    }
 
     if (statusCode >= 400 && statusCode < 500) {
       return ClientException(message, statusCode);
