@@ -5,8 +5,21 @@ import '../../../core/api/models/restaurant_models.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../restaurant/screens/restaurant_detail_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late final Future<List<Restaurant>> _riskyRestaurantsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _riskyRestaurantsFuture = RestaurantApiService().getRiskyRestaurants();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +161,7 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           FutureBuilder<List<Restaurant>>(
-            future: RestaurantApiService().getRiskyRestaurants(),
+            future: _riskyRestaurantsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Card(
