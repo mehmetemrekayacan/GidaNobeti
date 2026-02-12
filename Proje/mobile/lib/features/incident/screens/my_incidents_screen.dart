@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import '../../../core/api/services/incident_api_service.dart';
 
 /// Bildirimlerim - Öğrencinin kendi vaka bildirimleri listesi
@@ -19,7 +20,12 @@ class _MyIncidentsScreenState extends State<MyIncidentsScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeLocale();
     _load();
+  }
+
+  Future<void> _initializeLocale() async {
+    await initializeDateFormatting('tr_TR', null);
   }
 
   Future<void> _load() async {
