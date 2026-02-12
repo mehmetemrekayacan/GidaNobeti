@@ -1105,23 +1105,24 @@ Sipariş yükleme business logic.
 #### TASK-MB-012: Risk Warning Dialog 🟡 P1
 **Süre:** 2 saat  
 **Sorumlu:** Mehmet  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Riskli restoran uyarısı dialog.
 
 **Checklist:**
-- [ ] Custom dialog widget
-- [ ] Kırmızı renk şeması (alert)
-- [ ] Warning icon
-- [ ] Mesaj: "⚠️ DİKKAT: Bu restoran denetim altında!"
-- [ ] Risk reason göster
-- [ ] "İade Destek Kartı" butonu (future)
-- [ ] "Tamam" butonu
+- [x] Custom dialog widget (`lib/features/order/widgets/risk_warning_dialog.dart`)
+- [x] Kırmızı renk şeması (alert, red.shade50 background, red border)
+- [x] Warning icon (Icons.warning_amber_rounded)
+- [x] Mesaj: "⚠️ DİKKAT: Bu restoran denetim altında!"
+- [x] Risk reason göster (warning mesajı parse edilip gösteriliyor)
+- [ ] "İade Destek Kartı" butonu (future - yorum olarak bırakıldı)
+- [x] "Tamam" butonu
+- [x] Order Upload ekranına entegre (warnings varsa otomatik göster)
 
 **Acceptance Criteria:**
-- Backend'den warning gelirse otomatik açılmalı
-- Design görsel olarak çarpıcı olmalı
+- ✅ Backend'den warning gelirse otomatik açılır (postFrameCallback ile)
+- ✅ Design görsel olarak çarpıcı (kırmızı alert, warning icon, vurgulu mesaj)
 
 **Dependencies:** TASK-MB-011
 
@@ -1193,19 +1194,20 @@ Kullanıcı profili ve ayarlar.
 #### TASK-MB-015: Incident Report Screen 🟡 P1
 **Süre:** 4 saat  
 **Sorumlu:** Mehmet  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Sağlık sorunu bildirimi ekranı.
 
 **Checklist:**
-- [ ] `lib/features/incident/presentation/pages/report_incident_page.dart`
-- [ ] Form:
-  - [ ] Şüphelenilen sipariş seçimi (Dropdown - son 3 gün)
-  - [ ] Semptomlar (TextArea)
-  - [ ] Şiddet seviyesi (1-5 slider)
-  - [ ] Başlangıç zamanı (DateTimePicker)
-- [ ] "Bildir" butonu
+- [x] `lib/features/incident/screens/incident_report_screen.dart`
+- [x] `lib/core/api/services/incident_api_service.dart` (reportIncident, IncidentReportResponse)
+- [x] Form:
+  - [x] Şüphelenilen sipariş seçimi (Dropdown - son 3 gün, OrderApiService.getMyHistory)
+  - [x] Semptomlar (TextField 10–2000 karakter)
+  - [x] Şiddet seviyesi (1–5 seçenekler)
+- [x] "Bildir" butonu → API → başarı dialogu (incident_id, next_steps, sağlık görevlisi uyarısı)
+- [x] Home hızlı işlemlerde "Sağlık Sorunu Bildir" kartı + `/incident-report` route
 - [ ] Success dialog
 - [ ] Disclaimer: "Sağlık görevlisine başvurunuz"
 

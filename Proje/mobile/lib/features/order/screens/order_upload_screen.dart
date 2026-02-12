@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/api/services/order_api_service.dart';
 import '../../../core/api/models/order_models.dart';
+import '../widgets/risk_warning_dialog.dart';
 
 /// Order upload - fiş fotoğrafı yükle (POST /v1/orders/upload)
 class OrderUploadScreen extends StatefulWidget {
@@ -42,6 +43,8 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
           _uploading = false;
           _result = res;
         });
+        // Risk uyarısı varsa dialog göster
+        _checkAndShowRiskWarning(res);
       }
     } catch (e) {
       if (mounted) {
@@ -77,6 +80,8 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
           _uploading = false;
           _result = res;
         });
+        // Risk uyarısı varsa dialog göster
+        _checkAndShowRiskWarning(res);
       }
     } catch (e) {
       if (mounted) {
@@ -85,6 +90,31 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
           _error = e.toString().replaceFirst('Exception: ', '');
         });
       }
+    }
+  }
+
+  void _checkAndShowRiskWarning(OrderUploadResponse response) {
+    // Backend'den gelen warning mesajı formatı: "Dikkat: {restaurant.name} riskli restoran listesinde!"
+    final riskWarning = response.warnings.firstWhere(
+      (w) => w.contains('riskli restoran') || w.contains('Dikkat'),
+      orElse: () => '',
+    );
+    if (riskWarning.isNotEmpty) {
+      // Restaurant name'i çıkar: "Dikkat: Restoran Adı riskli restoran listesinde!"
+      String restaurantName = response.restaurantName ?? 'Bilinmeyen Restoran';
+      final match = RegExp(r'Dikkat:\s*(.+?)\s*riskli').firstMatch(riskWarning);
+      if (match != null) {
+        restaurantName = match.group(1) ?? restaurantName;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          RiskWarningDialog.show(
+            context,
+            restaurantName: restaurantName,
+            riskReason: riskWarning,
+          );
+        }
+      });
     }
   }
 
