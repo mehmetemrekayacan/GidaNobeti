@@ -145,6 +145,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     // Full Name Input
                     TextFormField(
                       controller: _fullNameController,
+                      keyboardType: TextInputType.text,
+                      textInputAction: TextInputAction.next,
                       enabled: !isLoading,
                       decoration: InputDecoration(
                         labelText: 'Ad Soyad *',

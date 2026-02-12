@@ -290,6 +290,8 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: _symptomsController,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.newline,
               maxLines: 4,
               maxLength: 2000,
               decoration: const InputDecoration(
