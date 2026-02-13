@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'core/bloc/app_bloc_observer.dart';
 import 'core/api/dio_client.dart';
 import 'core/api/services/auth_api_service.dart';
@@ -15,10 +16,13 @@ import 'features/order/screens/order_history_screen.dart';
 import 'features/incident/screens/incident_report_screen.dart';
 import 'features/incident/screens/my_incidents_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('tr', null);
+
   // Setup BLoC observer for debugging
   Bloc.observer = AppBlocObserver();
-  
+
   runApp(const MyApp());
 }
 

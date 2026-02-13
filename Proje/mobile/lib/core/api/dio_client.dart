@@ -9,17 +9,18 @@ class DioClient {
   /// Callback for 401 Unauthorized errors (token expired)
   static void Function()? onUnauthorized;
 
-  // Platform-specific base URL
+  // Platform-specific base URL (fiziksel cihaz için: flutter run --dart-define=API_HOST=192.168.1.5)
   static String get _baseUrl {
+    const host = String.fromEnvironment('API_HOST', defaultValue: '');
+    if (host.isNotEmpty) {
+      return 'http://$host:8000';
+    }
     if (kIsWeb) {
-      // Web: use localhost
       return 'http://localhost:8000';
     } else if (Platform.isAndroid) {
-      // Android Emulator: special IP
-      return 'http://10.0.2.2:8000';
+      return 'http://10.0.2.2:8000'; // Android Emulator
     } else {
-      // iOS Simulator & others: localhost
-      return 'http://localhost:8000';
+      return 'http://localhost:8000'; // iOS Simulator & others
     }
   }
   

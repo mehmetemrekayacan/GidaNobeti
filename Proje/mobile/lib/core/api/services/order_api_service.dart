@@ -12,10 +12,21 @@ class OrderApiService {
   Future<OrderHistoryListResponse> getMyHistory({
     int page = 1,
     int limit = 20,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? restaurantId,
   }) async {
+    final params = <String, dynamic>{'page': page, 'limit': limit};
+    if (startDate != null) {
+      params['start_date'] = startDate.toUtc().toIso8601String();
+    }
+    if (endDate != null) {
+      params['end_date'] = endDate.toUtc().toIso8601String();
+    }
+    if (restaurantId != null) params['restaurant_id'] = restaurantId;
     final response = await _client.get(
       '/v1/orders/my-history',
-      queryParameters: {'page': page, 'limit': limit},
+      queryParameters: params,
     );
     return OrderHistoryListResponse.fromJson(
         response.data as Map<String, dynamic>);

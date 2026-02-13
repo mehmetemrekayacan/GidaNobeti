@@ -2,7 +2,7 @@
 
 **Proje:** Sipariş Takip Uygulaması | Yurt Gıda Güvenliği ve Kapı Düzeni Sistemi  
 **Son Güncelleme:** 8 Şubat 2026  
-**Durum:** 🚧 Demo Aşamasında | Order History + Health Incident ✅ Tamamlandı
+**Durum:** 🚧 Demo Aşamasında | Order History Screen (MB-013) ✅ Tamamlandı
 
 ---
 
@@ -1133,27 +1133,32 @@ Riskli restoran uyarısı dialog.
 #### TASK-MB-013: Order History Screen 🟡 P1
 **Süre:** 5 saat  
 **Sorumlu:** Mehmet  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Geçmiş siparişler listesi.
 
 **Checklist:**
-- [ ] `lib/features/profile/presentation/pages/order_history_page.dart`
-- [ ] Liste (Card widgets):
-  - [ ] Restoran ismi
-  - [ ] Tarih/saat
-  - [ ] Toplam tutar
-  - [ ] Risk badge (o zamanki durum)
-- [ ] Pagination (infinite scroll)
-- [ ] Pull-to-refresh
-- [ ] Empty state (hiç sipariş yoksa)
-- [ ] Filter by date (optional)
+- [x] `lib/features/order/screens/order_history_screen.dart`
+- [x] Liste (Card widgets):
+  - [x] Restoran ismi
+  - [x] Tarih/saat
+  - [x] Toplam tutar
+  - [x] Risk badge (o zamanki durum)
+- [x] Pagination (infinite scroll)
+- [x] Pull-to-refresh
+- [x] Empty state (hiç sipariş yoksa)
+- [x] Filter by date (Tümü / Son 7 gün / Son 30 gün)
 
 **Acceptance Criteria:**
 - Backend'den history çekilmeli
 - Pagination çalışmalı (scroll to bottom → load more)
 - Refresh çalışmalı
+
+**Tamamlanma Notları:**
+- OrderApiService.getMyHistory: startDate, endDate, restaurantId query params eklendi
+- Order History ekranı: tarih filtresi (FilterChip), kart tasarımı (_OrderHistoryCard), risk badge Türkçe etiket (Riskli/Yasaklı/İzlemede/Güvenli), method chip (Fiş/Ekran görüntüsü), boş/error state iyileştirildi
+- Route `/order-history` ve Home "Geçmiş" kartı zaten mevcut
 
 **Dependencies:** TASK-MB-006, TASK-BE-012
 
