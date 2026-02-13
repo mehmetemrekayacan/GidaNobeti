@@ -2,7 +2,7 @@
 
 **Proje:** Sipariş Takip Uygulaması | Yurt Gıda Güvenliği ve Kapı Düzeni Sistemi  
 **Son Güncelleme:** 13 Şubat 2026  
-**Durum:** 🚧 Demo Aşamasında | BE-014 Risk Engine ✅ Commit: [TASK-BE-014] cron, RED_FLAG hook, loguru fix
+**Durum:** 🚧 Demo Aşamasında | TASK-BE-020 Fiş okuma iyileştirmesi ✅ (parser, OCR thread pool, admin/mobil içerik, 422)
 
 ---
 
@@ -23,6 +23,7 @@
 - ✅ Dashboard performansı: `/admin/dashboard/statistics` için Redis cache (10 dk, `DASHBOARD_CACHE_ENABLED`)
 - ✅ Öğrenci/Yönetici UX: Öğrenci listesinde İşlemler sütununda sadece Detay butonu; detay modal (ESC ile kapanır) içinde sipariş geçmişine git linki; Siparişler sayfası `?search=` ile öğrenci adına göre açılabiliyor
 - ✅ Mobile Faz 2: Login/Register (session restore), Home Risk Panosu (risky list), Sipariş Yükle (kamera/galeri), Sipariş Geçmişi
+- ✅ **TASK-BE-020:** Fiş okuma iyileştirmesi tamamlandı – restoran (etiket/skip/önek), toplam (saat elenmesi, Toplam (KDV dahil) iki satır), ürün (çok satırlı Ix format); total fallback; OCR thread pool; admin İçerik modal + mobil Sipariş içeriği; fiş okunamazsa 422
 - 🟡 DevOps: Production server, domain + SSL, CI/CD (GitHub Actions)
 
 Detaylar aşağıdaki ilgili task başlıklarında (Backend, Admin Panel, Mobile, DevOps) işlenmiştir.
@@ -393,32 +394,6 @@ OCR çıktısından structured data çıkarma.
 
 ---
 
-#### TASK-BE-020: Fiş Okuma Sistemi İyileştirmesi (OCR + Parser) 🟡 P1
-**Süre:** 8–10 saat  
-**Sorumlu:** —  
-**Durum:** ⏳ Pending
-
-**Açıklama:**
-Fiş okuma (OCR + parser) bazen restoran ismini yanlış okuyor, bazen tutar/yemek satırlarını hiç görmüyor. Örnek: Trendyol fişinde restoran "Meşhur Unkapanı Pilavcısı" iken sistem "mğe" diyor; yemek "Tavuklu & Pilavüstü Ciğer (1.5)" fiyat 200 TL iken tutar 0 ve yemek sütunu görünmüyor. Hem admin hem mobil siparişler/geçmişte bu bilgilerin net görünmesi ve fiş okumanın daha sağlam çalışması hedefleniyor.
-
-**Checklist:**
-- [ ] **Restoran ismi:** Platform prefix temizleme (TRENDYOL-, Yemeksepeti- vb. sonrası gerçek restoran adı); ilk anlamlı uzun satırı tercih; OCR hatalı kısa parça (örn. "mğe") yerine tam isim çıkarımı
-- [ ] **Tutar:** Toplam tutar pattern’lerini güçlendir ("200 TL.", "Toplam 200,00" vb.); çok satırlı ve tablo formatı; fallback olarak son geçerli fiyat benzeri sayı
-- [ ] **Ürün listesi:** Sütunlu fiş formatı (Ürün | Miktar | Tutar) desteği; parantez içi porsiyon bilgisi korunarak isim parse; "Tavuklu & Pilavüstü Ciğer (1.5 Porsiyon) 2 200,00" gibi satırların tutarlı parse edilmesi
-- [ ] **OCR iyileştirme (opsiyonel):** Görsel ön işleme (rotasyon, kontrast), dil/karakter düzeltmesi, güven eşiği altında alternatif okuma
-- [ ] **Admin + Mobil:** Sipariş detayında restoran adı, ürün satırları (isim, miktar, birim fiyat), toplam tutar her iki tarafta da net ve tutarlı gösterilsin; eksik/0 tutar durumunda kullanıcıya anlamlı mesaj
-
-**Acceptance Criteria:**
-- Trendyol tarzı fişte restoran adı "Meşhur Unkapanı Pilavcısı" (veya platform sonrası gerçek isim) olarak parse edilmeli
-- Yemek adı ve tutar (200 TL) hem parse edilmeli hem admin/mobil sipariş listesi ve geçmişte görünmeli
-- Tutar 0 / yemek yok gibi hatalar bu tip fişlerde mümkün olduğunca giderilmeli
-
-**Referans:** Kullanıcı tarafından paylaşılan Trendyol fişi (Meşhur Unkapanı Pilavcısı, Tavuklu & Pilavüstü Ciğer, 200 TL)
-
-**Dependencies:** TASK-BE-008, TASK-BE-009
-
----
-
 #### TASK-BE-010: Restaurant Auto-Create & Matching 🟡 P1
 **Süre:** 4 saat  
 **Gerçek Süre:** ~2 saat  
@@ -760,6 +735,54 @@ Structured logging ve Sentry entegrasyonu.
 - Production: logs/app.log JSON, rotation 100MB, 7 gün retention
 
 **Dependencies:** TASK-BE-002
+
+---
+
+#### TASK-BE-020: Fiş Okuma ve Sipariş Verisi İyileştirmesi 🔴 P0
+**Süre:** 8 saat  
+**Sorumlu:** —  
+**Durum:** ✅ Done
+
+**Açıklama:**
+Fiş okuma (OCR + parser) ve sipariş verisinin doğruluğu; restoran ismi, yemek/ürün adı ve tutarın hem doğru parse edilmesi hem admin ve mobilde net gösterilmesi.
+
+**Checklist:**
+
+*Parser (parser_service.py):*
+- [x] Restoran ismi: Etiket bazlı arama ("Siparişin verildiği yer:", "Restoran:"); UI skip (Yardım Merkezi, Ö. Tipi); platform öneki temizleme (TRENDYOL-, Yemeksepeti -); OCR gürültüsü elenmesi (Ğ7MG[], _is_plausible_restaurant_name). Eski: Platform önekini atlama (TRENDYOL-, Yemek- vb.); gerçek işletme adını alma (örn. "Meşhur Unkapanı Pilavcısı"); ilk anlamlı satır anlamsız/kısa (örn. "mğe") ise sonraki satırları veya tablo öncesi başlık satırını kullanma
+- [x] Toplam tutar: "Toplam (KDV dahil)" + sonraki satırda tutar (iki satır format); saat (18.17) elenmesi; indirim/ürün satırı toplam sayılmaz. Eski: "Toplam: 200 TL.", "200,00" (Tutar sütunu), "200 TL." tek satır formatlarını yakalama; çok satırlı Toplam satırı; O/0, l/1 normalizasyonu
+- [x] Ürün listesi: Çok satırlı Yemeksepeti (Ix / ürün adı / fiyat ayrı satırlar); tek satır pattern'ler. Eski: Trendyol tablo formatı (Ürün / Miktar / Tutar) için satır pattern’leri; uzun ürün adları ("Tavuklu & Pilavüstü Ciğer (1.5 Porsiyon)"); virgüllü tutar (200,00) parse; tablo başlık satırlarını (Ürün, Adet, Tutar) atlama
+- [x] Unit test: Trendyol, Yemeksepeti, çok satırlı ürün (Komagene), garbage restoran. Eski: Örnek fiş metni (Trendyol – Meşhur Unkapanı Pilavcısı, 200 TL, tek ürün) ile restoran adı + toplam + 1 item (name, quantity, unit_price) doğrulanmalı
+
+*Backend (orders upload / response):*
+- [x] Parse sonucu `total_amount` 0 veya None ise: `items` üzerinden toplam hesapla ve kullan (fallback)
+- [x] `order_items`: item_name 255 char kırpılıyor; parse'dan ürünler kaydediliyor. Eski: `item_name` boş olan satır oluşturulmasın; parse’dan gelen ürün adı 255 karaktere kırpılsın
+- [x] GET my-history ve admin orders: items dönüyor. Ayrıca: fiş okunamazsa 422; OCR asyncio.to_thread. Eski: GET my-history ve order detail response’ta `order_items[].item_name`, `total_amount` her zaman dolu/anlamlı dönmeli
+
+*Admin panel:*
+- [x] Siparişler listesi: **İçerik** sütunu, "İçerik (n)" butonu ile modal. Eski: Siparişler listesi ve detay: **Ürün / Yemek** sütunu (item_name), **Tutar** (birim/toplam) ve **Toplam** net görünsün; boş/0 TL durumunda fallback veya “—” gösterimi
+
+*Mobil:*
+- [x] Sipariş geçmişi kartında **Sipariş içeriği** (her zaman); ürün yoksa bilgi mesajı. Eski: Sipariş geçmişi ve sipariş detayı: **Yemek (ürün) adı** sütunu, **birim fiyat**, **toplam tutar** net görünsün; liste ve detayda item_name + total_amount eksik kalmasın
+
+**Acceptance Criteria:**
+- ✅ Yemeksepeti/Domino's: "Siparişin verildiği yer:" sonrası restoran; "Toplam (KDV dahil)" + sonraki satır 250 TL; ürün satırı 550 TL toplam sayılmıyor
+- ✅ Trendyol: TRENDYOL- öneki kaldırılıyor; "Toplam: 200 TL" (800 TL İndirim değil); Ö. Tipi satırı restoran sayılmıyor
+- ✅ Admin ve mobilde sipariş içeriği (ürün listesi) görünüyor; fiş okunamazsa 422, sipariş kaydedilmiyor
+- ✅ Regression: mevcut parser testleri (26) geçiyor
+
+**Tamamlanma Notları:**
+- parser_service: RESTAURANT_LABEL_PREFIXES, RESTAURANT_SKIP_PATTERNS, PLATFORM_PREFIXES, _extract_restaurant_by_label, _strip_platform_prefix, _is_plausible_restaurant_name; _looks_like_time, _line_looks_like_item; çok satırlı ürün (MULTILINE_QTY/PRICE)
+- orders.py: total fallback (items'dan toplam), 422 when no restaurant and no total, OCR in asyncio.to_thread; rate limit 30/saat
+- admin: GET /admin/orders items include, AdminOrderItemSchema; İçerik modal
+- mobile: OrderHistoryCard'da Sipariş içeriği her zaman, items boşsa bilgi mesajı
+
+**Referans (örnek fiş):**
+- Restoran: Meşhur Unkapanı Pilavcısı (fişte "TRENDYOL-Meşhur Unkapanı Pilavcısı" vb. yazıyor olabilir)
+- Ürün: Tavuklu & Pilavüstü Ciğer (1.5 Porsiyon), Miktar: 2, Tutar: 200,00
+- Toplam: 200 TL.
+
+**Dependencies:** TASK-BE-008, TASK-BE-009, TASK-BE-011
 
 ---
 
