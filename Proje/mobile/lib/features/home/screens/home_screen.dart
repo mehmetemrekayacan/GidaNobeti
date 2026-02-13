@@ -13,12 +13,21 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late final Future<List<Restaurant>> _riskyRestaurantsFuture;
+  late Future<List<Restaurant>> _riskyRestaurantsFuture;
+  final RestaurantApiService _restaurantApi = RestaurantApiService();
 
   @override
   void initState() {
     super.initState();
-    _riskyRestaurantsFuture = RestaurantApiService().getRiskyRestaurants();
+    _riskyRestaurantsFuture = _restaurantApi.getRiskyRestaurants();
+  }
+
+  /// Pull-to-refresh: Risk panosu ve tüm sayfa verisini yeniler (admin’de yapılan risk değişiklikleri görünür).
+  Future<void> _onRefresh() async {
+    setState(() {
+      _riskyRestaurantsFuture = _restaurantApi.getRiskyRestaurants();
+    });
+    await _riskyRestaurantsFuture;
   }
 
   @override
@@ -83,9 +92,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHomeContent(BuildContext context, AuthAuthenticated state) {
     final user = state.user;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Welcome Card
@@ -297,7 +309,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
