@@ -1,8 +1,8 @@
 # ✅ SİPARİŞ TAKİP UYGULAMASI - DETAYLI GÖREV LİSTESİ (TASKS)
 
 **Proje:** Sipariş Takip Uygulaması | Yurt Gıda Güvenliği ve Kapı Düzeni Sistemi  
-**Son Güncelleme:** 8 Şubat 2026  
-**Durum:** 🚧 Demo Aşamasında | Risk Analysis Engine (BE-014) ✅ Tamamlandı
+**Son Güncelleme:** 13 Şubat 2026  
+**Durum:** 🚧 Demo Aşamasında | BE-014 Risk Engine ✅ Commit: [TASK-BE-014] cron, RED_FLAG hook, loguru fix
 
 ---
 
