@@ -289,13 +289,9 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildQuickActionCard(
                 context,
                 icon: Icons.settings,
-                title: 'Ayarlar',
+                title: 'Profil',
                 color: Colors.grey,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Yakında...')),
-                  );
-                },
+                onTap: () => Navigator.pushNamed(context, '/profile'),
               ),
             ],
           ),

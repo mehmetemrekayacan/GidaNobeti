@@ -2,9 +2,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../core/api/services/auth_api_service.dart';
 import '../../../core/api/models/auth_models.dart' show LoginRequest, RegisterRequest, TokenResponse, User;
+import 'auth_state.dart';
+export 'auth_state.dart';
 
 part 'auth_event.dart';
-part 'auth_state.dart';
 
 /// Authentication BLoC - Handles login, register, logout logic
 class AuthBloc extends Bloc<AuthEvent, AuthState> {

@@ -2,7 +2,7 @@
 
 **Proje:** Sipariş Takip Uygulaması | Yurt Gıda Güvenliği ve Kapı Düzeni Sistemi  
 **Son Güncelleme:** 8 Şubat 2026  
-**Durum:** 🚧 Demo Aşamasında | Order History Screen (MB-013) ✅ Tamamlandı
+**Durum:** 🚧 Demo Aşamasında | Profile Screen (MB-014) ✅ Tamamlandı
 
 ---
 
@@ -1167,28 +1167,26 @@ Geçmiş siparişler listesi.
 #### TASK-MB-014: Profile Screen 🟢 P2
 **Süre:** 3 saat  
 **Sorumlu:** Mehmet  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Kullanıcı profili ve ayarlar.
 
 **Checklist:**
-- [ ] `lib/features/profile/presentation/pages/profile_page.dart`
-- [ ] Kullanıcı bilgileri:
-  - [ ] Avatar (placeholder)
-  - [ ] Ad Soyad
-  - [ ] Email
-  - [ ] Yurt + Oda No
-- [ ] Menü items:
-  - [ ] Sipariş Geçmişi (navigation)
-  - [ ] Bildirim Ayarları (future)
-  - [ ] Hakkında
-  - [ ] Çıkış Yap
-- [ ] Logout confirmation dialog
+- [x] `lib/features/profile/screens/profile_screen.dart`
+- [x] Kullanıcı bilgileri:
+  - [x] Avatar (placeholder – ilk harf)
+  - [x] Ad Soyad, Email, Yurt + Oda No
+- [x] Menü: Sipariş Geçmişi, Bildirim Ayarları (yakında), Hakkında, Çıkış Yap
+- [x] Logout confirmation dialog
 
 **Acceptance Criteria:**
 - Logout çalışmalı (token silinmeli)
 - Sipariş geçmişine navigate edilmeli
+
+**Tamamlanma Notları:**
+- Route `/profile`, Home "Ayarlar" kartı "Profil" olarak güncellendi ve `/profile`'a yönlendiriyor
+- BlocListener ile çıkış sonrası `/login` replace
 
 **Dependencies:** TASK-MB-006
 

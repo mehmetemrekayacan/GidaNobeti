@@ -15,6 +15,7 @@ import 'features/order/screens/order_upload_screen.dart';
 import 'features/order/screens/order_history_screen.dart';
 import 'features/incident/screens/incident_report_screen.dart';
 import 'features/incident/screens/my_incidents_screen.dart';
+import 'features/profile/screens/profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,6 +65,7 @@ class MyApp extends StatelessWidget {
           '/order-history': (context) => const OrderHistoryScreen(),
           '/incident-report': (context) => const IncidentReportScreen(),
           '/my-incidents': (context) => const MyIncidentsScreen(),
+          '/profile': (context) => const ProfileScreen(),
         },
         onGenerateRoute: (settings) {
           if (settings.name == '/restaurant-detail') {

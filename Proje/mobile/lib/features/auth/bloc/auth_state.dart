@@ -1,4 +1,5 @@
-part of 'auth_bloc.dart';
+import 'package:equatable/equatable.dart';
+import '../../../core/api/models/auth_models.dart';
 
 /// Authentication states
 abstract class AuthState extends Equatable {
