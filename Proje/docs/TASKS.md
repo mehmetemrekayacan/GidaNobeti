@@ -393,6 +393,32 @@ OCR çıktısından structured data çıkarma.
 
 ---
 
+#### TASK-BE-020: Fiş Okuma Sistemi İyileştirmesi (OCR + Parser) 🟡 P1
+**Süre:** 8–10 saat  
+**Sorumlu:** —  
+**Durum:** ⏳ Pending
+
+**Açıklama:**
+Fiş okuma (OCR + parser) bazen restoran ismini yanlış okuyor, bazen tutar/yemek satırlarını hiç görmüyor. Örnek: Trendyol fişinde restoran "Meşhur Unkapanı Pilavcısı" iken sistem "mğe" diyor; yemek "Tavuklu & Pilavüstü Ciğer (1.5)" fiyat 200 TL iken tutar 0 ve yemek sütunu görünmüyor. Hem admin hem mobil siparişler/geçmişte bu bilgilerin net görünmesi ve fiş okumanın daha sağlam çalışması hedefleniyor.
+
+**Checklist:**
+- [ ] **Restoran ismi:** Platform prefix temizleme (TRENDYOL-, Yemeksepeti- vb. sonrası gerçek restoran adı); ilk anlamlı uzun satırı tercih; OCR hatalı kısa parça (örn. "mğe") yerine tam isim çıkarımı
+- [ ] **Tutar:** Toplam tutar pattern’lerini güçlendir ("200 TL.", "Toplam 200,00" vb.); çok satırlı ve tablo formatı; fallback olarak son geçerli fiyat benzeri sayı
+- [ ] **Ürün listesi:** Sütunlu fiş formatı (Ürün | Miktar | Tutar) desteği; parantez içi porsiyon bilgisi korunarak isim parse; "Tavuklu & Pilavüstü Ciğer (1.5 Porsiyon) 2 200,00" gibi satırların tutarlı parse edilmesi
+- [ ] **OCR iyileştirme (opsiyonel):** Görsel ön işleme (rotasyon, kontrast), dil/karakter düzeltmesi, güven eşiği altında alternatif okuma
+- [ ] **Admin + Mobil:** Sipariş detayında restoran adı, ürün satırları (isim, miktar, birim fiyat), toplam tutar her iki tarafta da net ve tutarlı gösterilsin; eksik/0 tutar durumunda kullanıcıya anlamlı mesaj
+
+**Acceptance Criteria:**
+- Trendyol tarzı fişte restoran adı "Meşhur Unkapanı Pilavcısı" (veya platform sonrası gerçek isim) olarak parse edilmeli
+- Yemek adı ve tutar (200 TL) hem parse edilmeli hem admin/mobil sipariş listesi ve geçmişte görünmeli
+- Tutar 0 / yemek yok gibi hatalar bu tip fişlerde mümkün olduğunca giderilmeli
+
+**Referans:** Kullanıcı tarafından paylaşılan Trendyol fişi (Meşhur Unkapanı Pilavcısı, Tavuklu & Pilavüstü Ciğer, 200 TL)
+
+**Dependencies:** TASK-BE-008, TASK-BE-009
+
+---
+
 #### TASK-BE-010: Restaurant Auto-Create & Matching 🟡 P1
 **Süre:** 4 saat  
 **Gerçek Süre:** ~2 saat  
