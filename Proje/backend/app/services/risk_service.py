@@ -1,5 +1,7 @@
 """
 Risk Analysis Service - Otomatik risk statüsü güncelleme (TASK-BE-014/015)
+- Tek restoran: update_restaurant_risk_status (incident sonrası çağrılır)
+- Tüm restoranlar: update_all_restaurants_risk_status (cron ile saatlik)
 """
 import logging
 from datetime import datetime, timedelta, timezone
@@ -11,6 +13,15 @@ from app.db.models.order import Order
 from app.db.models.restaurant import Restaurant, RiskStatus
 
 logger = logging.getLogger(__name__)
+
+# RED_FLAG olduğunda çağrılacak hook (bildirim vb. - ileride genişletilebilir)
+def on_risk_red_flag(restaurant_id: int, restaurant_name: str | None) -> None:
+    """RED_FLAG olduğunda tetiklenir; log + ileride push/email eklenebilir."""
+    logger.warning(
+        "Restoran risk RED_FLAG: id=%s name=%s",
+        restaurant_id,
+        restaurant_name or "?",
+    )
 
 # Son 24 saat
 RECENT_HOURS = 24
@@ -86,3 +97,25 @@ async def update_restaurant_risk_status(db: AsyncSession, restaurant_id: int) ->
             "Restaurant %s risk updated: %s → %s (%s)",
             restaurant_id, current.value, new_status.value, reason or "",
         )
+        if new_status == RiskStatus.RED_FLAG and current != RiskStatus.RED_FLAG:
+            on_risk_red_flag(restaurant_id, restaurant.name)
+
+
+async def update_all_restaurants_risk_status(db: AsyncSession) -> int:
+    """
+    Tüm restoranların risk statüsünü günceller (cron job için).
+    Dönüş: güncellenen restoran sayısı.
+    """
+    stmt = select(Restaurant.id).where(Restaurant.is_active == True)
+    result = await db.execute(stmt)
+    ids = [row[0] for row in result.all()]
+    count = 0
+    for rid in ids:
+        try:
+            await update_restaurant_risk_status(db, rid)
+            count += 1
+        except Exception as e:
+            logger.exception("Risk update failed for restaurant %s: %s", rid, e)
+    if ids:
+        await db.commit()
+    return count

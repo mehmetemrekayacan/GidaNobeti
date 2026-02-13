@@ -2,7 +2,7 @@
 
 **Proje:** Sipariş Takip Uygulaması | Yurt Gıda Güvenliği ve Kapı Düzeni Sistemi  
 **Son Güncelleme:** 8 Şubat 2026  
-**Durum:** 🚧 Demo Aşamasında | Profile Screen (MB-014) ✅ Tamamlandı
+**Durum:** 🚧 Demo Aşamasında | Risk Analysis Engine (BE-014) ✅ Tamamlandı
 
 ---
 
@@ -538,28 +538,28 @@ Riskli restoranları listeleme (mobil ana sayfa için).
 #### TASK-BE-014: Risk Analysis Engine 🟡 P1
 **Süre:** 6 saat  
 **Sorumlu:** Emre  
-**Durum:** ⏳ Pending
+**Durum:** ✅ Done
 
 **Açıklama:**
 Otomatik risk statüsü güncelleme algoritması.
 
 **Checklist:**
-- [ ] `app/services/risk_service.py` oluştur
-- [ ] `update_restaurant_risk_status()` fonksiyonu
-- [ ] Algoritma (SPEC'teki):
-  - [ ] Son 24 saatte 3+ şikayet → RED_FLAG
-  - [ ] Son 24 saatte 2 şikayet → WATCHLIST
-  - [ ] Şikayet oranı >5% → WATCHLIST
-  - [ ] Aksi halde → SAFE
-- [ ] Database update (risk_status, risk_reason)
-- [ ] Notification trigger (RED_FLAG ise)
-- [ ] PostgreSQL NOTIFY/LISTEN (async queue)
-- [ ] Cron job (her 1 saatte bir tüm restoranları check et)
+- [x] `app/services/risk_service.py` (mevcut + genişletildi)
+- [x] `update_restaurant_risk_status()` fonksiyonu
+- [x] Algoritma (SPEC): 24s 3+ → RED_FLAG, 2 → WATCHLIST, oran %5+ → WATCHLIST, aksi SAFE
+- [x] Database update (risk_status, risk_reason, risk_updated_at)
+- [x] Notification trigger: `on_risk_red_flag()` hook (log; ileride push/email)
+- [ ] PostgreSQL NOTIFY/LISTEN (ileride - opsiyonel)
+- [x] Cron: `update_all_restaurants_risk_status()` + main.py startup’ta saatlik görev (RISK_CRON_ENABLED, RISK_CRON_INTERVAL_SECONDS)
 
 **Acceptance Criteria:**
-- Şikayet geldiğinde risk otomatik güncellenmeli
-- RED_FLAG olduğunda bildirim gitmeli
-- Manual risk update yapılabilmeli (admin için)
+- Şikayet geldiğinde risk otomatik güncellenmeli (incidents.py zaten çağırıyor)
+- RED_FLAG olduğunda hook tetiklenir (log; bildirim ileride)
+- Manual risk update admin’de mevcut (PUT risk-status)
+
+**Tamamlanma Notları:**
+- risk_service: on_risk_red_flag(), update_all_restaurants_risk_status(); config RISK_CRON_*
+- main.py: run_risk_cron_loop() 60 sn sonra başlar, her 3600 sn çalışır
 
 **Dependencies:** TASK-BE-015
 

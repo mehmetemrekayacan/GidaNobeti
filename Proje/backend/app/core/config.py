@@ -48,6 +48,10 @@ class Settings(BaseSettings):
 
     # Dashboard stats cache (Redis) - DEBUG=True olsa bile açılabilir
     DASHBOARD_CACHE_ENABLED: bool = True
+
+    # Risk cron (TASK-BE-014) - her N saniyede bir tüm restoran risklerini güncelle
+    RISK_CRON_ENABLED: bool = True
+    RISK_CRON_INTERVAL_SECONDS: int = 3600  # 1 saat
     
     # Sentry (TASK-BE-019) - opsiyonel, boşsa devre dışı
     SENTRY_DSN: str | None = None

@@ -2,6 +2,7 @@
 FastAPI Application Entry Point
 Optimized for performance with minimal overhead.
 """
+import asyncio
 import traceback
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +20,8 @@ from app.api.v1.restaurants import router as restaurants_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.incidents import router as incidents_router
-from app.db.session import engine
+from app.db.session import engine, AsyncSessionLocal
+from app.services.risk_service import update_all_restaurants_risk_status
 
 # Sentry (TASK-BE-019) - SENTRY_DSN varsa aktif
 if settings.SENTRY_DSN:
@@ -67,7 +69,7 @@ app.add_middleware(RequestLoggingMiddleware)
 async def global_exception_handler(request: Request, exc: Exception):
     """Yakalanmamış hataları logla ve DEBUG modunda detay döndür."""
     tb = traceback.format_exc()
-    logger.exception("Unhandled exception: %s", exc)
+    logger.exception("Unhandled exception: {}", exc)
     if settings.DEBUG:
         return JSONResponse(
             status_code=500,
@@ -117,6 +119,23 @@ async def root():
     }
 
 
+async def run_risk_cron_loop():
+    """TASK-BE-014: Her N saniyede bir tüm restoran risklerini günceller."""
+    await asyncio.sleep(60)  # İlk çalışma 60 sn sonra (DB hazır olsun)
+    while True:
+        try:
+            if settings.RISK_CRON_ENABLED:
+                async with AsyncSessionLocal() as db:
+                    n = await update_all_restaurants_risk_status(db)
+                    if n > 0:
+                        logger.info("Risk cron: {} restoran risk güncellendi", n)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.exception("Risk cron hatası: {}", e)
+        await asyncio.sleep(settings.RISK_CRON_INTERVAL_SECONDS)
+
+
 # Startup Event
 @app.on_event("startup")
 async def startup_event():
@@ -138,6 +157,14 @@ async def startup_event():
         logger.info("Database connection successful and tables created/verified")
     except Exception as e:
         logger.warning("Database initialization warning: {}", str(e))
+
+    # TASK-BE-014: Risk cron (saatlik tüm restoran risk güncelleme)
+    if getattr(settings, "RISK_CRON_ENABLED", True):
+        asyncio.create_task(run_risk_cron_loop())
+        logger.info(
+            "Risk cron enabled: interval={}s",
+            getattr(settings, "RISK_CRON_INTERVAL_SECONDS", 3600),
+        )
 
 
 # Shutdown Event
