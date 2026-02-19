@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/api/services/order_api_service.dart';
@@ -5,6 +6,7 @@ import '../../../core/api/models/order_models.dart';
 import '../widgets/risk_warning_dialog.dart';
 
 /// Order upload - fiş fotoğrafı yükle (POST /v1/orders/upload)
+/// Tek veya çoklu (max 2) görsel destekler (Trendyol gibi uzun fişler için).
 class OrderUploadScreen extends StatefulWidget {
   const OrderUploadScreen({super.key});
 
@@ -15,11 +17,22 @@ class OrderUploadScreen extends StatefulWidget {
 class _OrderUploadScreenState extends State<OrderUploadScreen> {
   final OrderApiService _api = OrderApiService();
   final ImagePicker _picker = ImagePicker();
+
+  /// Seçilen görsellerin yol listesi (max 2)
+  final List<String> _selectedImages = [];
+  static const int _maxImages = 2;
+
   bool _uploading = false;
   String? _error;
   OrderUploadResponse? _result;
 
-  Future<void> _pickAndUpload() async {
+  // ── Görsel Ekleme ──────────────────────────────────────────────────────────
+
+  Future<void> _pickFromCamera() async {
+    if (_selectedImages.length >= _maxImages) {
+      _showMaxImagesWarning();
+      return;
+    }
     try {
       final XFile? file = await _picker.pickImage(
         source: ImageSource.camera,
@@ -28,59 +41,113 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
       );
       if (file == null) return;
       final path = file.path;
-      if (path == null || path.isEmpty) {
+      if (path.isEmpty) {
         setState(() => _error = 'Dosya yolu alınamadı');
         return;
       }
       setState(() {
-        _uploading = true;
+        _selectedImages.add(path);
         _error = null;
         _result = null;
       });
-      final res = await _api.uploadReceipt(path);
-      if (mounted) {
-        setState(() {
-          _uploading = false;
-          _result = res;
-        });
-        // Risk uyarısı varsa dialog göster
-        _checkAndShowRiskWarning(res);
-      }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _uploading = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
-        });
+        setState(
+            () => _error = e.toString().replaceFirst('Exception: ', ''));
       }
     }
   }
 
   Future<void> _pickFromGallery() async {
+    if (_selectedImages.length >= _maxImages) {
+      _showMaxImagesWarning();
+      return;
+    }
     try {
-      final XFile? file = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        imageQuality: 80,
-      );
-      if (file == null) return;
-      final path = file.path;
-      if (path == null || path.isEmpty) {
-        setState(() => _error = 'Dosya yolu alınamadı');
-        return;
+      final remaining = _maxImages - _selectedImages.length;
+      if (remaining > 1) {
+        // Çoklu seçim
+        final List<XFile> files = await _picker.pickMultiImage(
+          maxWidth: 1280,
+          imageQuality: 80,
+        );
+        if (files.isEmpty) return;
+        final toAdd = files
+            .take(remaining)
+            .map((f) => f.path)
+            .where((p) => p.isNotEmpty)
+            .toList();
+        if (toAdd.isEmpty) {
+          setState(() => _error = 'Dosya yolu alınamadı');
+          return;
+        }
+        setState(() {
+          _selectedImages.addAll(toAdd);
+          _error = null;
+          _result = null;
+        });
+      } else {
+        // Tek görsel kaldı
+        final XFile? file = await _picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1280,
+          imageQuality: 80,
+        );
+        if (file == null) return;
+        final path = file.path;
+        if (path.isEmpty) {
+          setState(() => _error = 'Dosya yolu alınamadı');
+          return;
+        }
+        setState(() {
+          _selectedImages.add(path);
+          _error = null;
+          _result = null;
+        });
       }
-      setState(() {
-        _uploading = true;
-        _error = null;
-        _result = null;
-      });
-      final res = await _api.uploadReceipt(path);
+    } catch (e) {
+      if (mounted) {
+        setState(
+            () => _error = e.toString().replaceFirst('Exception: ', ''));
+      }
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+      _result = null;
+      _error = null;
+    });
+  }
+
+  void _showMaxImagesWarning() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('En fazla $_maxImages görsel seçebilirsiniz.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // ── Yükleme ────────────────────────────────────────────────────────────────
+
+  Future<void> _uploadImages() async {
+    if (_selectedImages.isEmpty) return;
+
+    setState(() {
+      _uploading = true;
+      _error = null;
+      _result = null;
+    });
+
+    try {
+      final res = await _api.uploadReceipts(_selectedImages);
       if (mounted) {
         setState(() {
           _uploading = false;
           _result = res;
         });
-        // Risk uyarısı varsa dialog göster
         _checkAndShowRiskWarning(res);
       }
     } catch (e) {
@@ -94,10 +161,8 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
   }
 
   void _checkAndShowRiskWarning(OrderUploadResponse response) {
-    // Backend'den gelen warning mesajı formatı: "Dikkat: {restaurant.name} riskli restoran listesinde!"
     if (response.warnings.isEmpty) return;
-    
-    // Risk uyarısı içeren warning'i bul
+
     String? riskWarning;
     for (final w in response.warnings) {
       if (w.contains('riskli restoran') || w.contains('Dikkat')) {
@@ -105,16 +170,15 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
         break;
       }
     }
-    
+
     if (riskWarning != null && riskWarning.isNotEmpty) {
-      // Restaurant name'i çıkar: "Dikkat: Restoran Adı riskli restoran listesinde!"
       String restaurantName = response.restaurantName ?? 'Bilinmeyen Restoran';
-      final match = RegExp(r'Dikkat:\s*(.+?)\s*riskli').firstMatch(riskWarning);
+      final match =
+          RegExp(r'Dikkat:\s*(.+?)\s*riskli').firstMatch(riskWarning);
       if (match != null && match.group(1) != null) {
         restaurantName = match.group(1)!.trim();
       }
-      
-      // Dialog'u bir sonraki frame'de göster
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           try {
@@ -131,6 +195,8 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
     }
   }
 
+  // ── UI ──────────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -145,11 +211,19 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Fiş veya ekran görüntüsü yükleyin. OCR ile otomatik okunacak.',
+              'Fiş veya ekran görüntüsü yükleyin. OCR ile otomatik okunacak.\n'
+              'Uzun fişler için 2 görsel seçebilirsiniz.',
               style: TextStyle(fontSize: 14, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
+
+            // ── Seçilen Görseller Önizleme ─────────────────────────────────
+            if (_selectedImages.isNotEmpty) ...[
+              _buildThumbnailRow(),
+              const SizedBox(height: 16),
+            ],
+
             if (_uploading)
               const Center(
                 child: Padding(
@@ -164,26 +238,52 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
                 ),
               )
             else ...[
-              OutlinedButton.icon(
-                onPressed: _pickAndUpload,
-                icon: const Icon(Icons.camera_alt),
-                label: const Text('Kamera ile çek'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  foregroundColor: Colors.orange,
+              // Görsel ekleme butonları
+              if (_selectedImages.length < _maxImages) ...[
+                OutlinedButton.icon(
+                  onPressed: _pickFromCamera,
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text('Kamera ile çek'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    foregroundColor: Colors.orange,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _pickFromGallery,
-                icon: const Icon(Icons.photo_library),
-                label: const Text('Galeriden seç'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  foregroundColor: Colors.orange,
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _pickFromGallery,
+                  icon: const Icon(Icons.photo_library),
+                  label: Text(_selectedImages.isEmpty
+                      ? 'Galeriden seç'
+                      : 'Galeriden ekle'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    foregroundColor: Colors.orange,
+                  ),
                 ),
-              ),
+              ],
+
+              // Yükle butonu
+              if (_selectedImages.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _uploadImages,
+                  icon: const Icon(Icons.cloud_upload),
+                  label: Text(
+                    _selectedImages.length == 1
+                        ? 'Yükle (1 görsel)'
+                        : 'Yükle (${_selectedImages.length} görsel)',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ],
+
+            // ── Hata Mesajı ────────────────────────────────────────────────
             if (_error != null) ...[
               const SizedBox(height: 24),
               Card(
@@ -197,6 +297,8 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
                 ),
               ),
             ],
+
+            // ── Sonuç Kartı ────────────────────────────────────────────────
             if (_result != null) ...[
               const SizedBox(height: 24),
               Card(
@@ -208,7 +310,8 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.check_circle, color: Colors.green.shade700),
+                          Icon(Icons.check_circle,
+                              color: Colors.green.shade700),
                           const SizedBox(width: 8),
                           Text(
                             'Sipariş kaydedildi',
@@ -222,7 +325,8 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
                       if (_result!.restaurantName != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: Text('Restoran: ${_result!.restaurantName}'),
+                          child:
+                              Text('Restoran: ${_result!.restaurantName}'),
                         ),
                       if (_result!.totalAmount != null)
                         Padding(
@@ -240,7 +344,8 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Icon(Icons.warning_amber,
-                                    size: 18, color: Colors.orange.shade800),
+                                    size: 18,
+                                    color: Colors.orange.shade800),
                                 const SizedBox(width: 8),
                                 Expanded(
                                     child: Text(
@@ -261,6 +366,74 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Seçilen görselleri yan yana küçük önizlemeler olarak gösterir.
+  /// Her birinin üzerinde çarpı (×) butonu ile kaldırılabilir.
+  Widget _buildThumbnailRow() {
+    return Row(
+      children: List.generate(_selectedImages.length, (index) {
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: index < _selectedImages.length - 1 ? 8 : 0,
+            ),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: AspectRatio(
+                    aspectRatio: 3 / 4,
+                    child: Image.file(
+                      File(_selectedImages[index]),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                // Çarpı (×) butonu
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () => _removeImage(index),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+                // Sayfa numarası
+                Positioned(
+                  bottom: 4,
+                  left: 4,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${index + 1}/$_maxImages',
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 11),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
     );
   }
 }

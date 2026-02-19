@@ -32,12 +32,18 @@ class OrderApiService {
         response.data as Map<String, dynamic>);
   }
 
-  /// POST /v1/orders/upload - upload receipt image
+  /// POST /v1/orders/upload - upload single receipt image (backward compat)
   Future<OrderUploadResponse> uploadReceipt(String filePath) async {
-    final response = await _client.postMultipart(
+    return uploadReceipts([filePath]);
+  }
+
+  /// POST /v1/orders/upload - upload one or more receipt images
+  /// Trendyol gibi uzun fişler için max 2 görsel destekler.
+  Future<OrderUploadResponse> uploadReceipts(List<String> filePaths) async {
+    final response = await _client.postMultipartMultiple(
       '/v1/orders/upload',
-      filePath: filePath,
-      fieldName: 'file',
+      filePaths: filePaths,
+      fieldName: 'files',
     );
     return OrderUploadResponse.fromJson(
         response.data as Map<String, dynamic>);

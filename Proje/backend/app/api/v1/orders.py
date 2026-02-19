@@ -5,6 +5,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query, Request
+from typing import List
 from app.core.limiter import limiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
@@ -30,6 +31,7 @@ router = APIRouter(prefix="/orders", tags=["Orders"])
 logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_FILES = 2  # Trendyol gibi uzun fişler için max 2 görsel
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/jpg"}
 
 
@@ -119,43 +121,58 @@ async def get_my_order_history(
 @limiter.limit("10/hour")
 async def upload_receipt(
     request: Request,
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Fiş fotoğrafı yükle, OCR ile işle, sipariş kaydet.
-    KVKK: Görsel sunucuda saklanmaz.
+    Fiş fotoğrafı yükle (1 veya 2 görsel), OCR ile işle, sipariş kaydet.
+    Trendyol gibi uzun fişler için 2 görsel desteklenir - metinler birleştirilir.
+    KVKK: Görseller sunucuda saklanmaz.
     """
-    # Validasyon
-    if file.content_type and file.content_type.lower() not in ALLOWED_CONTENT_TYPES:
+    if len(files) > MAX_FILES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Sadece JPEG/PNG kabul edilir",
-        )
-
-    content = await file.read()
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Görsel 5MB'dan büyük olamaz",
+            detail=f"En fazla {MAX_FILES} görsel yüklenebilir",
         )
 
     warnings = []
+    ocr_texts: list[str] = []
+    total_confidence: float = 0.0
 
-    try:
-        # OCR
-        raw_text, confidence = ocr_service.extract(content)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.exception("OCR failed")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Fiş okunamadı, lütfen daha net bir fotoğraf deneyin",
-        )
-    finally:
-        del content  # KVKK: RAM'den hemen sil
+    for file in files:
+        # Validasyon
+        if file.content_type and file.content_type.lower() not in ALLOWED_CONTENT_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Sadece JPEG/PNG kabul edilir",
+            )
+
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Görsel 5MB'dan büyük olamaz",
+            )
+
+        try:
+            text, confidence = ocr_service.extract(content)
+            ocr_texts.append(text)
+            total_confidence += confidence
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        except Exception as e:
+            logger.exception("OCR failed")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Fiş okunamadı, lütfen daha net bir fotoğraf deneyin",
+            )
+        finally:
+            del content  # KVKK: RAM'den hemen sil
+
+    # Birden fazla görsel varsa metinleri ayırıcı ile birleştir
+    raw_text = "\n---\n".join(ocr_texts)
+    confidence = total_confidence / len(files) if files else 0.0
 
     if not raw_text.strip():
         raise HTTPException(

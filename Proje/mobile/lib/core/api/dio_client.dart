@@ -85,7 +85,7 @@ class DioClient {
     }
   }
 
-  /// POST multipart file (e.g. receipt image upload)
+  /// POST multipart file (e.g. receipt image upload) - single file
   Future<Response> postMultipart(
     String path, {
     required String filePath,
@@ -102,6 +102,34 @@ class DioClient {
           contentType: 'multipart/form-data',
           sendTimeout: const Duration(seconds: 60),
           receiveTimeout: const Duration(seconds: 60),
+        ),
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// POST multipart files (multiple) - e.g. multi-page receipt upload
+  Future<Response> postMultipartMultiple(
+    String path, {
+    required List<String> filePaths,
+    String fieldName = 'files',
+  }) async {
+    try {
+      final multipartFiles = <MultipartFile>[];
+      for (final fp in filePaths) {
+        multipartFiles.add(await MultipartFile.fromFile(fp));
+      }
+      final formData = FormData.fromMap({
+        fieldName: multipartFiles,
+      });
+      return await _dio.post(
+        path,
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(seconds: 120),
+          receiveTimeout: const Duration(seconds: 120),
         ),
       );
     } on DioException catch (e) {
