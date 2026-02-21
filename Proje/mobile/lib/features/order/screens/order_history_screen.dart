@@ -254,6 +254,29 @@ class _OrderHistoryCard extends StatelessWidget {
                 if (rest != null) _RiskBadge(status: rest.currentRiskStatus),
               ],
             ),
+            // Sipariş İçeriği (food_content)
+            if (order.foodContent != null && order.foodContent!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.restaurant_menu, size: 14, color: Colors.grey[500]),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      order.foodContent!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        fontStyle: FontStyle.italic,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [

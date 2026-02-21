@@ -26,6 +26,9 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
   String? _error;
   OrderUploadResponse? _result;
 
+  /// Başarılı yükleme sonrası success ekranı gösterilir
+  bool _showSuccess = false;
+
   // ── Görsel Ekleme ──────────────────────────────────────────────────────────
 
   Future<void> _pickFromCamera() async {
@@ -147,6 +150,7 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
         setState(() {
           _uploading = false;
           _result = res;
+          _showSuccess = true;
         });
         _checkAndShowRiskWarning(res);
       }
@@ -195,6 +199,17 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
     }
   }
 
+  /// State'i sıfırla — yeni sipariş yükleme moduna döner
+  void _resetForNewUpload() {
+    setState(() {
+      _selectedImages.clear();
+      _uploading = false;
+      _error = null;
+      _result = null;
+      _showSuccess = false;
+    });
+  }
+
   // ── UI ──────────────────────────────────────────────────────────────────────
 
   @override
@@ -207,9 +222,196 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: _showSuccess && _result != null
+            ? _buildSuccessView()
+            : _buildUploadView(),
+      ),
+    );
+  }
+
+  /// Başarılı yükleme sonrası gösterilen ekran
+  Widget _buildSuccessView() {
+    final result = _result!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 32),
+
+        // ── Başarılı İkonu ───────────────────────────────────────────────
+        Icon(
+          Icons.check_circle,
+          color: Colors.green.shade600,
+          size: 80,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Başarılı!',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.green.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Siparişiniz başarıyla kaydedildi.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 32),
+
+        // ── Sipariş Özet Kartı ───────────────────────────────────────────
+        Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Başlık
+                Row(
+                  children: [
+                    Icon(Icons.receipt_long,
+                        color: Colors.orange.shade700, size: 22),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Sipariş Özeti',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+
+                // Restoran Adı
+                if (result.restaurantName != null &&
+                    result.restaurantName!.isNotEmpty)
+                  _buildSummaryRow(
+                    Icons.restaurant,
+                    'Restoran',
+                    result.restaurantName!,
+                  ),
+
+                // Tutar
+                if (result.totalAmount != null)
+                  _buildSummaryRow(
+                    Icons.payments_outlined,
+                    'Tutar',
+                    '${result.totalAmount!.toStringAsFixed(2)} ₺',
+                  ),
+
+                // Yemek İçeriği
+                if (result.foodContent != null &&
+                    result.foodContent!.isNotEmpty)
+                  _buildSummaryRow(
+                    Icons.fastfood_outlined,
+                    'İçerik',
+                    result.foodContent!,
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        // ── Uyarılar ─────────────────────────────────────────────────────
+        if (result.warnings.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Card(
+            color: Colors.orange.shade50,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: result.warnings
+                    .map((w) => Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.warning_amber,
+                                  size: 18,
+                                  color: Colors.orange.shade800),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(w,
+                                    style: TextStyle(
+                                        color: Colors.orange.shade900)),
+                              ),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 32),
+
+        // ── Yeni Sipariş Yükle Butonu ────────────────────────────────────
+        ElevatedButton.icon(
+          onPressed: _resetForNewUpload,
+          icon: const Icon(Icons.add_photo_alternate_outlined),
+          label: const Text('Yeni Sipariş Yükle'),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Özet kartındaki tek bir satır
+  Widget _buildSummaryRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: Colors.grey.shade600),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 70,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 15),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Normal yükleme modu (görsel seçme + yükle)
+  Widget _buildUploadView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
             const Text(
               'Fiş veya ekran görüntüsü yükleyin. OCR ile otomatik okunacak.\n'
               'Uzun fişler için 2 görsel seçebilirsiniz.',
@@ -297,75 +499,7 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
                 ),
               ),
             ],
-
-            // ── Sonuç Kartı ────────────────────────────────────────────────
-            if (_result != null) ...[
-              const SizedBox(height: 24),
-              Card(
-                color: Colors.green.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.check_circle,
-                              color: Colors.green.shade700),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Sipariş kaydedildi',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green.shade800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_result!.restaurantName != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child:
-                              Text('Restoran: ${_result!.restaurantName}'),
-                        ),
-                      if (_result!.totalAmount != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            'Tutar: ${_result!.totalAmount!.toStringAsFixed(2)} ₺',
-                          ),
-                        ),
-                      if (_result!.warnings.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        ..._result!.warnings.map(
-                          (w) => Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(Icons.warning_amber,
-                                    size: 18,
-                                    color: Colors.orange.shade800),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                    child: Text(
-                                  w,
-                                  style: TextStyle(
-                                      color: Colors.orange.shade900),
-                                )),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
           ],
-        ),
-      ),
     );
   }
 

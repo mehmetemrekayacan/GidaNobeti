@@ -62,6 +62,9 @@ class Order(Base):
     # Financial Information
     total_amount: Mapped[float | None] = mapped_column(Numeric(10, 2))
     
+    # Food Content Summary (e.g. "1x Pizza X-Large, 1x Cheddar Sos")
+    food_content: Mapped[str | None] = mapped_column(Text)
+    
     # Security & Tracking
     client_ip: Mapped[str | None] = mapped_column(INET)
     user_agent: Mapped[str | None] = mapped_column(String(255))

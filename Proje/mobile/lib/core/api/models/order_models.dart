@@ -4,6 +4,7 @@ class OrderHistoryEntry {
   final DateTime declaredAt;
   final DateTime? receiptDate;
   final double? totalAmount;
+  final String? foodContent;
   final String method;
   final RestaurantSummary? restaurant;
   final List<OrderHistoryItem> items;
@@ -13,6 +14,7 @@ class OrderHistoryEntry {
     required this.declaredAt,
     this.receiptDate,
     this.totalAmount,
+    this.foodContent,
     required this.method,
     this.restaurant,
     this.items = const [],
@@ -27,6 +29,7 @@ class OrderHistoryEntry {
           ? DateTime.tryParse(json['receipt_date'] as String)
           : null,
       totalAmount: (json['total_amount'] as num?)?.toDouble(),
+      foodContent: json['food_content'] as String?,
       method: json['method'] as String,
       restaurant: json['restaurant'] != null
           ? RestaurantSummary.fromJson(
@@ -112,6 +115,7 @@ class OrderUploadResponse {
   final String? restaurantName;
   final int? restaurantId;
   final double? totalAmount;
+  final String? foodContent;
   final String rawOcrText;
   final double ocrConfidence;
   final List<String> warnings;
@@ -122,6 +126,7 @@ class OrderUploadResponse {
     this.restaurantName,
     this.restaurantId,
     this.totalAmount,
+    this.foodContent,
     required this.rawOcrText,
     required this.ocrConfidence,
     this.warnings = const [],
@@ -135,6 +140,7 @@ class OrderUploadResponse {
       restaurantName: json['restaurant_name'] as String?,
       restaurantId: json['restaurant_id'] as int?,
       totalAmount: (json['total_amount'] as num?)?.toDouble(),
+      foodContent: json['food_content'] as String?,
       rawOcrText: json['raw_ocr_text'] as String,
       ocrConfidence: (json['ocr_confidence'] as num).toDouble(),
       warnings: warningsList.map((e) => e as String).toList(),

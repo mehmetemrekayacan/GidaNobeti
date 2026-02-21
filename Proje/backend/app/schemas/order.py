@@ -35,6 +35,7 @@ class OrderHistoryEntrySchema(BaseModel):
     declared_at: datetime
     receipt_date: datetime | None
     total_amount: float | None
+    food_content: str | None = None
     method: str
     restaurant: RestaurantSummarySchema | None
     items: list[OrderHistoryItemSchema] = Field(default_factory=list)
@@ -58,6 +59,7 @@ class AdminOrderListItem(BaseModel):
     restaurant_name: str | None
     declared_at: datetime
     total_amount: float | None
+    food_content: str | None = None
     method: str
 
 
@@ -74,6 +76,7 @@ class OrderUploadResponse(BaseModel):
     restaurant_name: str | None
     restaurant_id: int | None
     total_amount: float | None
+    food_content: str | None = None
     raw_ocr_text: str
     ocr_confidence: float
     warnings: list[str] = Field(default_factory=list)

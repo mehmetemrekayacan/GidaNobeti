@@ -326,6 +326,7 @@ async def list_admin_orders(
             restaurant_name=o.restaurant.name if o.restaurant else None,
             declared_at=o.declared_at,
             total_amount=float(o.total_amount) if o.total_amount is not None else None,
+            food_content=o.food_content,
             method=o.method.value,
         )
         for o in orders

@@ -103,6 +103,7 @@ async def get_my_order_history(
                 declared_at=order.declared_at,
                 receipt_date=order.receipt_date,
                 total_amount=float(order.total_amount) if order.total_amount is not None else None,
+                food_content=order.food_content,
                 method=order.method.value,
                 restaurant=restaurant_schema,
                 items=item_schemas,
@@ -118,7 +119,7 @@ async def get_my_order_history(
 
 
 @router.post("/upload", response_model=OrderUploadResponse)
-@limiter.limit("10/hour")
+@limiter.limit("60/hour")
 async def upload_receipt(
     request: Request,
     files: List[UploadFile] = File(...),
@@ -218,6 +219,7 @@ async def upload_receipt(
         raw_ocr_text=raw_text,
         ocr_confidence=confidence,
         total_amount=parsed.total_amount,
+        food_content=parsed.food_content,
         receipt_date=receipt_dt,
     )
     db.add(order)
@@ -252,6 +254,7 @@ async def upload_receipt(
         restaurant_name=restaurant.name if restaurant else parsed.restaurant_name,
         restaurant_id=restaurant.id if restaurant else None,
         total_amount=parsed.total_amount,
+        food_content=parsed.food_content,
         raw_ocr_text=raw_text,
         ocr_confidence=confidence,
         warnings=warnings,

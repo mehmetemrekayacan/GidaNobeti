@@ -18,6 +18,7 @@ class ParsedReceipt:
     total_amount: Optional[float] = None
     receipt_date: Optional[datetime] = None
     items: list[dict] = None  # [{"name": str, "quantity": int, "unit_price": Optional[float]}]
+    food_content: Optional[str] = None  # "1x Pizza X-Large, 1x Cheddar Sos"
 
     def __post_init__(self):
         if self.items is None:
@@ -120,6 +121,291 @@ ITEM_PATTERNS = [
     r"^(.+?)\s+(\d+)\s+([\d,\.]+)\s*(?:tl|₺|€)?$",           # Lahmacun 2 45.00
     r"^(.+?)\s+([\d,\.]+)\s*(?:tl|₺|€)?$",                   # Lahmacun 45.00
 ]
+
+# ── Platform-spesifik ürün kalıpları ──────────────────────────────────────────
+# Yemeksepeti: "1x Pizza X-Large (80 gr.)" — zaten ITEM_PATTERNS[0] ile yakalanır.
+# Trendyol:    "Bol Bol Kumru Adet: 4" — "Adet:" etiketli
+TRENDYOL_ITEM_PATTERNS = [
+    # Trendyol fiyatlı: "Bol Bol Kumru Adet: 4 120,00 TL" (önce kontrol — daha spesifik)
+    (r"^(.+?)\s+[Aa]det\s*:\s*(\d+)\s+([\d,\.]+)\s*(?:tl|₺|€)?$", "trendyol_price"),
+    # Trendyol fiyatsız: "Bol Bol Kumru Adet: 4" veya "Bol Bol Kumru Adet:4"
+    (r"^(.+?)\s+[Aa]det\s*:\s*(\d+)\s*$", "trendyol"),
+]
+
+# Getir: "Yok Böyle Menü 1" — satır sonunda adet (fiyatsız, çok genel kalıp — en sonda kontrol)
+GETIR_TRAILING_QTY_RE = re.compile(r"^(.+?)\s+(\d+)\s*$")
+
+
+# ── Platform Tespiti ──────────────────────────────────────────────────────────
+# Her platformun kendine özgü sinyal kelimeleri ve ağırlıkları.
+_YEMEKSEPETI_SIGNALS = [
+    (r"sipari[sş]in\s*verildi[gğ]i\s*yer", 3),
+    (r"yard[iı]m\s*merkezi", 2),
+    (r"faturay[iı]\s*indir", 2),
+    (r"sipari[sş]\s*numaras[iı]\s*#", 2),
+    (r"teslim\s*edildi[gğ]i\s*yer", 1),
+    (r"[oö]deme\s*[sş]ekli", 1),
+    (r"online\s*[oö]deme", 1),
+]
+
+_GETIR_SIGNALS = [
+    (r"getiryemek|getir\s*yemek", 3),
+    (r"restoran\s*kuryesi", 3),
+    (r"[oö]deme\s*detay[iı]?", 2),
+    (r"kazan[cç][iı]?n", 2),
+    (r"[oö]denen\s*tutar", 2),
+]
+
+_TRENDYOL_SIGNALS = [
+    (r"trendyol", 3),
+    (r"teslimat\s*no\s*:", 2),
+    (r"[uü]r[uü]n\s*teslim\s*edildi", 2),
+]
+
+# Trendyol: önceki satır kontrolü — bu kalıpları içeren satırlar yemek adı değildir.
+_TRENDYOL_SKIP_PREV_LINE = [
+    r"sipari[sş]", r"teslimat", r"toplam", r"indirim",
+    r"[oö]deme", r"restoran", r"fla[sş]", r"kupon",
+    r"trendyol", r"ara\s*toplam", r"kdv",
+    r"teslim\s*edil", r"g[uü]n[uü]\s*saat",
+]
+
+# Getir: Sepet bölümündeki açıklama satırlarını atla.
+_GETIR_DESCRIPTION_SKIP = [
+    r"tercihi",
+    r"gramaj",
+    r"malzeme",
+    r"ekstra",
+]
+
+
+def _detect_platform(lines: list[str]) -> str:
+    """
+    OCR metninden platform tespiti yap.
+    Sinyal ağırlıklarına göre en olası platformu döndürür.
+
+    Returns: 'yemeksepeti', 'getir', 'trendyol', or 'generic'
+    """
+    full_text_lower = " ".join(lines).lower()
+
+    ys_score = sum(w for p, w in _YEMEKSEPETI_SIGNALS if re.search(p, full_text_lower))
+    gt_score = sum(w for p, w in _GETIR_SIGNALS if re.search(p, full_text_lower))
+    ty_score = sum(w for p, w in _TRENDYOL_SIGNALS if re.search(p, full_text_lower))
+
+    # Ek sinyaller: satır bazlı kontrol
+    for line in lines:
+        line_lower = line.strip().lower()
+        # "Sepet" tek başına bir satır → güçlü Getir sinyali
+        if re.match(r'^sepet$', line_lower):
+            gt_score += 3
+        # "Adet: N" → güçlü Trendyol sinyali
+        if re.search(r'adet\s*:\s*\d+', line_lower):
+            ty_score += 3
+
+    max_score = max(ys_score, gt_score, ty_score)
+    if max_score < 1:
+        return "generic"
+
+    # En yüksek skor kazanır (eşitlikte Trendyol > Getir > Yemeksepeti)
+    if ty_score == max_score:
+        return "trendyol"
+    elif gt_score == max_score:
+        return "getir"
+    elif ys_score == max_score:
+        return "yemeksepeti"
+    return "generic"
+
+
+# ── Platform-Spesifik Ürün Ayrıştırıcıları ────────────────────────────────────
+
+# Yemeksepeti: Fiyat pattern'leri — satır sonundan re.sub ile temizlenir
+# Geniş fiyat temizleme: küsuratlı (örn: 550,00 TL) veya küsuratsız (85 TL) sayıları yakalar
+_YEMEKSEPETI_PRICE_STRIP_RE = re.compile(
+    r'\s+\d[\d\s,\.]*\s*(?:tl|₺|€|t[lıl]?)\s*$',
+    re.IGNORECASE,
+)
+_YEMEKSEPETI_BARE_PRICE_STRIP_RE = re.compile(
+    r'\s+(\d[\d,\.]+)\s*$',
+)
+# Yemeksepeti Nx kalıbı: case-insensitive, boşluk toleranslı
+_YEMEKSEPETI_ITEM_RE = re.compile(r'(\d+)\s*[xX×]\s+(.*)', re.IGNORECASE)
+
+
+def _parse_items_yemeksepeti(lines: list[str]) -> list[dict]:
+    r"""
+    Yemeksepeti formatı: Satırlarda '(\d+)x Yemek Adı [Fiyat TL]' kalıbı aranır.
+    - Büyük/küçük harf duyarsız (?i) — '1X' ve '1x' aynı.
+    - Satır başında boşluk/karakter olabilir (^ yok, re.search).
+    - Eşleşen metinden fiyat kısmı re.sub ile güvenli şekilde silinir.
+    """
+    items = []
+    for line in lines:
+        line_stripped = line.strip()
+        m = _YEMEKSEPETI_ITEM_RE.search(line_stripped)
+        if not m:
+            continue
+
+        try:
+            qty = int(m.group(1))
+            rest = m.group(2).strip()
+            if qty < 1 or qty > 99 or not rest:
+                continue
+
+            # Fiyatı re.sub ile temizle: "Pizza X-Large 550,00 TL" → "Pizza X-Large"
+            unit_price = None
+
+            # Önce TL/₺ etiketli fiyatı ara ve çıkar
+            price_match = _YEMEKSEPETI_PRICE_STRIP_RE.search(rest)
+            if price_match:
+                raw_price = price_match.group(0).strip()
+                unit_price = _safe_parse_amount(raw_price)
+                name = _YEMEKSEPETI_PRICE_STRIP_RE.sub('', rest).strip()
+            else:
+                # TL etiketi olmadan küsuratlı sayı ile biten ("Lahmacun 45.00")
+                bare_match = _YEMEKSEPETI_BARE_PRICE_STRIP_RE.search(rest)
+                if bare_match:
+                    possible_price = _safe_parse_amount(bare_match.group(1))
+                    possible_name = _YEMEKSEPETI_BARE_PRICE_STRIP_RE.sub('', rest).strip()
+                    if possible_name and possible_price and possible_price > 1:
+                        name = possible_name
+                        unit_price = possible_price
+                    else:
+                        name = rest
+                else:
+                    name = rest
+
+            if len(name) > 1:
+                items.append({"name": name, "quantity": qty, "unit_price": unit_price})
+
+        except (ValueError, AttributeError, IndexError) as e:
+            # OCR hatalı satırı atla, diğer satırlara devam et
+            logger.debug(f"Yemeksepeti item parse hatası atlandı: {e}")
+            continue
+
+    return items
+
+
+def _parse_items_getir(lines: list[str]) -> list[dict]:
+    """
+    Getir formatı: 'Sepet' bölümünden sonra, 'Ödeme Detayı'/'Sipariş Tutarı'na kadar.
+    Ürün satırı: 'Yok Böyle Menü 1' (satır sonunda adet).
+    Açıklama satırları (Tercihi:, Gramaj vb.) atlanır.
+    """
+    items = []
+
+    # ── Adım 1: "Sepet" bölümünü bul ─────────────────────────────────────────
+    sepet_idx = -1
+    end_idx = len(lines)
+
+    for i, line in enumerate(lines):
+        line_lower = line.strip().lower()
+        if re.match(r'^sepet$', line_lower):
+            sepet_idx = i
+        elif sepet_idx >= 0 and re.search(
+            r'[oö]deme\s*detay|sipari[sş]\s*tutar',
+            line_lower,
+        ):
+            end_idx = i
+            break
+
+    if sepet_idx < 0:
+        return items  # "Sepet" bulunamadı → boş döndür
+
+    # ── Adım 2: Sepet – Ödeme Detayı arası satırları tara ────────────────────
+    for i in range(sepet_idx + 1, end_idx):
+        line_stripped = lines[i].strip()
+        if not line_stripped:
+            continue
+
+        # Fiyat satırlarını atla (sadece TL ile biten)
+        if re.search(r'[\d,\.]+\s*(?:tl|₺)\s*$', line_stripped, re.IGNORECASE):
+            continue
+
+        # Açıklama satırlarını atla (Tercihi:, Gramaj vb.)
+        if any(re.search(p, line_stripped, re.IGNORECASE) for p in _GETIR_DESCRIPTION_SKIP):
+            continue
+
+        # Trailing quantity: "Yok Böyle Menü 1"
+        m = re.match(r'^(.+?)\s+(\d+)\s*$', line_stripped)
+        if m:
+            name = m.group(1).strip()
+            qty = int(m.group(2))
+            if len(name) > 1 and 1 <= qty <= 99:
+                items.append({"name": name, "quantity": qty, "unit_price": None})
+                continue
+
+        # Miktar belirtilmemiş → qty=1
+        if len(line_stripped) > 2:
+            items.append({"name": line_stripped, "quantity": 1, "unit_price": None})
+
+    return items
+
+
+def _parse_items_trendyol(lines: list[str]) -> list[dict]:
+    """
+    Trendyol formatı: Yemek adı üst satırda, 'Adet: N' alt satırda.
+    Ayrıca aynı satırda 'Yemek Adet: N [Fiyat TL]' formatını da destekler.
+
+    Kural: lines[i] satırı Adet:\\s*(\\d+) ile eşleşiyorsa:
+      - Adet: öncesinde metin varsa → aynı satırdaki metin yemek adı
+      - Yoksa → lines[i-1] yemek adı
+    'Sipariş Tarihi' gibi alakasız satırlar filtrelenir.
+    """
+    items = []
+    used_indices: set[int] = set()  # Zaten kullanılan satır indeksleri
+
+    for i, line in enumerate(lines):
+        line_stripped = line.strip()
+        m = re.search(r'[Aa]det\s*:\s*(\d+)', line_stripped)
+        if not m:
+            continue
+
+        qty = int(m.group(1))
+        if qty < 1 or qty > 99:
+            continue
+
+        # Adet: öncesindeki metin (aynı satırda yemek adı var mı?)
+        before_adet = line_stripped[:m.start()].strip()
+
+        if before_adet and len(before_adet) > 1:
+            # "Bol Bol Kumru Adet: 4" — aynı satırda
+            name = before_adet
+        elif i > 0 and (i - 1) not in used_indices:
+            # "Adet: 4" ayrı satırda → önceki satır yemek adı
+            prev_line = lines[i - 1].strip()
+
+            # Önceki satır alakasız mı kontrol et
+            if len(prev_line) < 2:
+                continue
+            if _is_blacklisted_ui_text(prev_line):
+                continue
+            if any(re.search(p, prev_line, re.IGNORECASE) for p in _TRENDYOL_SKIP_PREV_LINE):
+                continue
+
+            name = prev_line
+            used_indices.add(i - 1)
+        else:
+            continue
+
+        # Adet: N'den sonraki metin (aynı satırda fiyat var mı?)
+        after_adet = line_stripped[m.end():].strip()
+        unit_price = None
+        if after_adet:
+            price_match = re.search(r'([\d\.,]+)\s*(?:tl|₺|€)?', after_adet, re.IGNORECASE)
+            if price_match:
+                unit_price = _safe_parse_amount(price_match.group(1))
+
+        # Aynı satırda fiyat yoksa, bir sonraki satıra bak
+        if unit_price is None and i + 1 < len(lines):
+            next_line = lines[i + 1].strip()
+            price_match = re.match(r'^([\d\.,]+)\s*(?:tl|₺|€)\s*$', next_line, re.IGNORECASE)
+            if price_match:
+                unit_price = _safe_parse_amount(price_match.group(1))
+
+        items.append({"name": name, "quantity": qty, "unit_price": unit_price})
+        used_indices.add(i)
+
+    return items
 
 
 def _normalize_ocr_number(s: str) -> str:
@@ -318,7 +604,62 @@ ITEM_SKIP_PATTERNS = [
 
 
 def _parse_items(lines: list[str]) -> list[dict]:
-    """Ürün listesi çıkar."""
+    """
+    Ürün listesi çıkar.
+    Platform tespiti yaptıktan sonra platforma özel parser çalıştırır.
+    Bulamazsa genel (generic) parser'a düşer.
+    """
+    platform = _detect_platform(lines)
+    logger.debug(f"Platform tespit edildi: {platform}")
+
+    items: list[dict] = []
+
+    if platform == "yemeksepeti":
+        items = _parse_items_yemeksepeti(lines)
+    elif platform == "getir":
+        items = _parse_items_getir(lines)
+    elif platform == "trendyol":
+        items = _parse_items_trendyol(lines)
+
+    # Platform-spesifik parser bulamadıysa genel parser'a düş
+    if not items:
+        items = _parse_items_generic(lines)
+
+    # ── Tekilleştirme (Deduplication) ─────────────────────────────────────────
+    # Çoklu ekran görüntüsü birleştirildiğinde aynı yemek birden fazla
+    # kez çıkabilir (özellikle Trendyol). Aynı isim+miktar çiftini tekle.
+    items = _deduplicate_items(items)
+
+    return items
+
+
+def _deduplicate_items(items: list[dict]) -> list[dict]:
+    """
+    Aynı yemek adı ve miktarına sahip ürünleri tekilleştir.
+    İlk bulunan kaydı tutar (fiyat bilgisi varsa onu tercih eder).
+    """
+    if not items:
+        return items
+
+    seen: dict[str, int] = {}  # key → items_deduped index
+    items_deduped: list[dict] = []
+
+    for item in items:
+        key = f"{item.get('quantity', 1)}x {item.get('name', '')}"
+        if key in seen:
+            # Eğer mevcut kayıtta fiyat yoksa ama yeni kayıtta varsa, güncelle
+            existing_idx = seen[key]
+            if items_deduped[existing_idx].get("unit_price") is None and item.get("unit_price") is not None:
+                items_deduped[existing_idx]["unit_price"] = item["unit_price"]
+            continue  # Tekrarı atla
+        seen[key] = len(items_deduped)
+        items_deduped.append(item)
+
+    return items_deduped
+
+
+def _parse_items_generic(lines: list[str]) -> list[dict]:
+    """Genel ürün ayrıştırıcı — platform tespit edilemediğinde fallback."""
     items = []
     for line in lines:
         line = line.strip()
@@ -327,7 +668,40 @@ def _parse_items(lines: list[str]) -> list[dict]:
         # Telefon, destek hattı vb. satırları atla
         if any(re.search(p, line, re.IGNORECASE) for p in ITEM_SKIP_PATTERNS):
             continue
-        # Sayı ile başlayan veya "x" içeren satırları dene
+
+        matched = False
+
+        # ── 1) Trendyol "Adet:" kalıpları (en spesifik — önce) ──────────────
+        for pattern, platform in TRENDYOL_ITEM_PATTERNS:
+            m = re.match(pattern, line, re.IGNORECASE)
+            if m:
+                g = m.groups()
+                if platform == "trendyol_price" and len(g) == 3:
+                    name = g[0].strip()
+                    qty = int(g[1])
+                    try:
+                        price_clean = g[2].replace(",", ".")
+                        price_clean = _normalize_ocr_number(price_clean)
+                        unit_price = float(price_clean)
+                        if 0 < unit_price <= MAX_UNIT_PRICE and len(name) > 1:
+                            items.append({"name": name, "quantity": qty, "unit_price": unit_price})
+                            matched = True
+                    except ValueError:
+                        if len(name) > 1:
+                            items.append({"name": name, "quantity": qty, "unit_price": None})
+                            matched = True
+                elif platform == "trendyol" and len(g) == 2:
+                    name = g[0].strip()
+                    qty = int(g[1])
+                    if 1 <= qty <= 99 and len(name) > 1:
+                        items.append({"name": name, "quantity": qty, "unit_price": None})
+                        matched = True
+                break
+
+        if matched:
+            continue
+
+        # ── 2) Standart kalıplar (fiyatlı — Yemeksepeti vb.) ─────────────────
         for pattern in ITEM_PATTERNS:
             m = re.match(pattern, line, re.IGNORECASE)
             if m:
@@ -347,10 +721,43 @@ def _parse_items(lines: list[str]) -> list[dict]:
                     # Makul fiyat sınırı (telefon numarası vb. yanlış parse önleme)
                     if 0 < unit_price <= MAX_UNIT_PRICE and len(name) > 1:
                         items.append({"name": name, "quantity": qty, "unit_price": unit_price})
+                        matched = True
                 except ValueError:
                     pass
                 break
+
+        if matched:
+            continue
+
+        # ── 3) Getir trailing qty (en genel — en sonda) ──────────────────────
+        # "Yok Böyle Menü 1" — satır sonunda adet, fiyat yok
+        m = GETIR_TRAILING_QTY_RE.match(line)
+        if m:
+            name = m.group(1).strip()
+            qty = int(m.group(2))
+            if 1 <= qty <= 99 and len(name) > 1:
+                items.append({"name": name, "quantity": qty, "unit_price": None})
+
     return items
+
+
+def _build_food_content(items: list[dict]) -> Optional[str]:
+    """
+    Ürün listesinden okunabilir sipariş içeriği özeti oluştur.
+    Örnek: "1x Pizza X-Large, 1x Cheddar Sos, 2x Ayran"
+    Tekrar eden ürünler otomatik olarak tekilleştirilir.
+    """
+    if not items:
+        return None
+    parts: list[str] = []
+    for item in items:
+        qty = item.get("quantity", 1)
+        name = item.get("name", "")
+        if name:
+            parts.append(f"{qty}x {name}")
+    # food_content string düzeyinde de tekilleştir (sıra korunur)
+    parts = list(dict.fromkeys(parts))
+    return ", ".join(parts) if parts else None
 
 
 def _is_blacklisted_ui_text(text: str) -> bool:
@@ -439,6 +846,7 @@ def parse_receipt_text(raw_text: str) -> ParsedReceipt:
     total_amount = _parse_total(lines)
     receipt_date = _parse_date(lines)
     items = _parse_items(lines)
+    food_content = _build_food_content(items)
 
     if restaurant_name:
         restaurant_name = _normalize_restaurant_name(restaurant_name)
@@ -447,7 +855,8 @@ def parse_receipt_text(raw_text: str) -> ParsedReceipt:
         restaurant_name=restaurant_name or None,
         total_amount=total_amount,
         receipt_date=receipt_date,
-        items=items
+        items=items,
+        food_content=food_content,
     )
 
 

@@ -13,10 +13,11 @@ interface Order {
   date: string;
   time: string;
   amount: number;
+  foodContent: string | null;
   method: 'SCREENSHOT' | 'RECEIPT' | 'PHYSICAL_RECEIPT' | 'MANUAL_ENTRY';
 }
 
-function mapApiOrder(api: { id: string; student_name: string; restaurant_name: string | null; declared_at: string; total_amount: number | null; method: string }): Order {
+function mapApiOrder(api: { id: string; student_name: string; restaurant_name: string | null; declared_at: string; total_amount: number | null; food_content: string | null; method: string }): Order {
   const d = new Date(api.declared_at);
   return {
     id: api.id,
@@ -25,6 +26,7 @@ function mapApiOrder(api: { id: string; student_name: string; restaurant_name: s
     date: d.toISOString().split('T')[0],
     time: d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
     amount: api.total_amount ?? 0,
+    foodContent: api.food_content ?? null,
     method: api.method as Order['method'],
   };
 }
@@ -38,6 +40,7 @@ const mockOrders: Order[] = [
     date: '2026-01-21',
     time: '19:45',
     amount: 85.50,
+    foodContent: '1x Karışık Pizza, 1x Kola',
     method: 'SCREENSHOT',
   },
   {
@@ -47,6 +50,7 @@ const mockOrders: Order[] = [
     date: '2026-01-21',
     time: '18:30',
     amount: 120.00,
+    foodContent: '1x Whopper Menü, 1x Chicken Royale',
     method: 'RECEIPT',
   },
   {
@@ -56,6 +60,7 @@ const mockOrders: Order[] = [
     date: '2026-01-20',
     time: '20:15',
     amount: 65.00,
+    foodContent: '2x İskender, 1x Ayran',
     method: 'SCREENSHOT',
   },
   {
@@ -65,6 +70,7 @@ const mockOrders: Order[] = [
     date: '2026-01-20',
     time: '19:00',
     amount: 45.00,
+    foodContent: '1x Çiğ Köfte Dürüm, 1x Şalgam',
     method: 'RECEIPT',
   },
   {
@@ -74,6 +80,7 @@ const mockOrders: Order[] = [
     date: '2026-01-19',
     time: '21:00',
     amount: 95.00,
+    foodContent: '1x Pizza X-Large, 1x Cheddar Sos',
     method: 'SCREENSHOT',
   },
   {
@@ -83,6 +90,7 @@ const mockOrders: Order[] = [
     date: '2026-01-19',
     time: '08:30',
     amount: 55.00,
+    foodContent: null,
     method: 'RECEIPT',
   },
   {
@@ -92,6 +100,7 @@ const mockOrders: Order[] = [
     date: '2026-01-18',
     time: '19:45',
     amount: 110.00,
+    foodContent: '2x Big King Menü',
     method: 'SCREENSHOT',
   },
   {
@@ -101,6 +110,7 @@ const mockOrders: Order[] = [
     date: '2026-01-18',
     time: '20:30',
     amount: 70.00,
+    foodContent: '1x Lahmacun, 1x Pide',
     method: 'RECEIPT',
   },
   {
@@ -110,6 +120,7 @@ const mockOrders: Order[] = [
     date: '2026-01-17',
     time: '18:15',
     amount: 90.00,
+    foodContent: '1x Margarita Pizza, 1x Patates Kızartma',
     method: 'SCREENSHOT',
   },
   {
@@ -119,6 +130,7 @@ const mockOrders: Order[] = [
     date: '2026-01-17',
     time: '19:30',
     amount: 50.00,
+    foodContent: '2x Çiğ Köfte Dürüm',
     method: 'RECEIPT',
   },
   {
@@ -128,6 +140,7 @@ const mockOrders: Order[] = [
     date: '2026-01-16',
     time: '20:00',
     amount: 130.00,
+    foodContent: '1x Whopper Jr, 1x Tavuk Burger, 1x Soğan Halkası',
     method: 'SCREENSHOT',
   },
   {
@@ -137,6 +150,7 @@ const mockOrders: Order[] = [
     date: '2026-01-16',
     time: '09:00',
     amount: 60.00,
+    foodContent: null,
     method: 'RECEIPT',
   },
 ];
@@ -157,6 +171,7 @@ function OrdersTable({
   rowRef: React.RefObject<HTMLTableRowElement | null>;
 }) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice(
     (currentPage - 1) * itemsPerPage,
@@ -177,6 +192,7 @@ function OrdersTable({
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Öğrenci</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Restoran</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Sipariş İçeriği</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Tarih & Saat</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Tutar</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Yöntem</th>
@@ -185,7 +201,7 @@ function OrdersTable({
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-16">
+                <td colSpan={6} className="px-6 py-16">
                   <div className="flex flex-col items-center justify-center gap-3 text-gray-500">
                     <Package className="w-12 h-12 text-gray-300" />
                     <p className="font-medium text-gray-600">
@@ -206,12 +222,22 @@ function OrdersTable({
                       (rowRef as React.MutableRefObject<HTMLTableRowElement | null>).current = el;
                     }
                   }}
-                  className={`hover:bg-gray-50 ${orderIdParam && String(order.id) === orderIdParam ? 'bg-blue-200! ring-2 ring-blue-500 -ring-offset-2' : ''}`}
+                  onClick={() => setSelectedOrder(order)}
+                  className={`hover:bg-gray-50 cursor-pointer ${orderIdParam && String(order.id) === orderIdParam ? 'bg-blue-200! ring-2 ring-blue-500 -ring-offset-2' : ''}`}
                 >
                   <td className="px-6 py-4">
                     <div className="font-medium text-gray-900">{order.studentName}</div>
                   </td>
                   <td className="px-6 py-4 text-gray-900">{order.restaurant}</td>
+                  <td className="px-6 py-4">
+                    {order.foodContent ? (
+                      <span className="text-sm text-gray-700" title={order.foodContent}>
+                        {order.foodContent.length > 40 ? order.foodContent.slice(0, 40) + '…' : order.foodContent}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-400 italic">—</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="text-gray-900">{order.date}</div>
                     <div className="text-sm text-gray-700">{order.time}</div>
@@ -257,6 +283,83 @@ function OrdersTable({
             >
               Sonraki
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sipariş Detay Modal */}
+      {selectedOrder && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setSelectedOrder(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Sipariş Detayı</h3>
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5 space-y-4">
+              {/* Sipariş İçeriği — vurgulu */}
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                <div className="text-xs font-medium text-orange-600 uppercase tracking-wide mb-1">
+                  🍽️ Yenen Yemekler
+                </div>
+                <div className="text-base font-semibold text-orange-900">
+                  {selectedOrder.foodContent || (
+                    <span className="text-gray-400 font-normal italic">Sipariş içeriği tespit edilemedi</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Diğer bilgiler */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Öğrenci</span>
+                  <p className="font-medium text-gray-900">{selectedOrder.studentName}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Restoran</span>
+                  <p className="font-medium text-gray-900">{selectedOrder.restaurant}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Tarih & Saat</span>
+                  <p className="font-medium text-gray-900">{selectedOrder.date} {selectedOrder.time}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Tutar</span>
+                  <p className="font-medium text-gray-900">₺{selectedOrder.amount.toFixed(2)}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Yöntem</span>
+                  <div className="mt-1">{getMethodBadge(selectedOrder.method)}</div>
+                </div>
+                <div>
+                  <span className="text-gray-500">Sipariş ID</span>
+                  <p className="font-mono text-xs text-gray-600 break-all">{selectedOrder.id}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Kapat
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -377,13 +480,14 @@ export default function OrdersPage() {
 
   const handleExportCSV = () => {
     // CSV headers
-    const headers = ['ID', 'Öğrenci', 'Restoran', 'Tarih', 'Saat', 'Tutar', 'Yöntem'];
+    const headers = ['ID', 'Öğrenci', 'Restoran', 'Sipariş İçeriği', 'Tarih', 'Saat', 'Tutar', 'Yöntem'];
     
     // CSV rows
     const rows = filteredOrders.map((order) => [
       order.id,
       order.studentName,
       order.restaurant,
+      order.foodContent || '',
       order.date,
       order.time,
       order.amount.toFixed(2),
@@ -420,7 +524,7 @@ export default function OrdersPage() {
       const res = await apiClient.get('/admin/orders', {
         params: { page: nextPage, limit: PAGE_SIZE },
       });
-      const newItems = (res.data.items || []).map(mapApiOrder);
+      const newItems: Order[] = (res.data.items || []).map(mapApiOrder);
       const total = typeof res.data.total === 'number' ? res.data.total : totalFromApi ?? 0;
 
       setOrders((prev) => {

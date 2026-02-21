@@ -501,3 +501,416 @@ Toplam: 370,00 TL"""
         ty = parse_receipt_text(ty_text)
         assert "DAYI DÖNER" in ty.restaurant_name
         assert ty.total_amount == 370.0
+
+
+class TestFoodContent:
+    """food_content özet alanı testleri."""
+
+    def test_food_content_from_standard_items(self):
+        """Standart ürün satırlarından food_content oluşturulur."""
+        text = """
+        Restoran X
+        2x Lahmacun 45.00 TL
+        1x Ayran 10.00 TL
+        Toplam: 100.00
+        """
+        result = parse_receipt_text(text)
+        assert result.food_content is not None
+        assert "2x Lahmacun" in result.food_content
+        assert "1x Ayran" in result.food_content
+
+    def test_food_content_none_when_no_items(self):
+        """Ürün yoksa food_content None olmalı."""
+        text = """
+        Restoran X
+        Toplam: 100.00 TL
+        """
+        result = parse_receipt_text(text)
+        assert result.food_content is None
+
+    def test_food_content_yemeksepeti_format(self):
+        """Yemeksepeti formatında food_content doğru oluşturulur."""
+        text = """
+        Siparişin verildiği yer:
+        Domino's Pizza
+        1x Pizza X-Large 550,00 TL
+        1x X-Large Cheddar Sos (80 gr.) 85,00 TL
+        Ara Toplam 620,00 TL
+        Toplam (KDV dahil) 250,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert result.food_content is not None
+        assert "1x Pizza X-Large" in result.food_content
+        assert "Cheddar Sos" in result.food_content
+
+    def test_food_content_comma_separated(self):
+        """Birden fazla ürün virgülle ayrılır."""
+        text = """
+        Restoran
+        3x Döner 60.00
+        2x Cola 20.00
+        Toplam: 100.00
+        """
+        result = parse_receipt_text(text)
+        assert result.food_content is not None
+        assert ", " in result.food_content
+        assert "3x Döner" in result.food_content
+        assert "2x Cola" in result.food_content
+
+
+class TestPlatformItemPatterns:
+    """Platform-spesifik ürün kalıpları testleri (Getir, Trendyol)."""
+
+    def test_getir_item_with_trailing_quantity(self):
+        """Getir formatı: 'Yok Böyle Menü 1' — satır sonunda adet."""
+        text = """
+        Restoran: Popeyes
+        Yok Böyle Menü 1
+        Ödenen Tutar 150,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert len(result.items) >= 1
+        item = next((i for i in result.items if "Menü" in i["name"] or "Menu" in i["name"]), None)
+        assert item is not None
+        assert item["quantity"] == 1
+        assert result.food_content is not None
+        assert "Menü" in result.food_content or "Menu" in result.food_content
+
+    def test_getir_multiple_items(self):
+        """Getir birden fazla ürün."""
+        text = """
+        Restoran: Burger King
+        Whopper Menü 2
+        Nuggets 6'lı 1
+        Ödenen Tutar 300,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert len(result.items) >= 1
+        assert result.food_content is not None
+
+    def test_trendyol_adet_format(self):
+        """Trendyol formatı: 'Bol Bol Kumru Adet: 4'."""
+        text = """
+        Restoran: Dayı Döner Kumru
+        Bol Bol Kumru Adet: 4
+        Toplam: 200,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert len(result.items) >= 1
+        item = next((i for i in result.items if "Kumru" in i["name"]), None)
+        assert item is not None
+        assert item["quantity"] == 4
+        assert result.food_content is not None
+        assert "4x Bol Bol Kumru" in result.food_content
+
+    def test_trendyol_adet_with_price(self):
+        """Trendyol formatı fiyatlı: 'Bol Bol Kumru Adet: 4 120,00 TL'."""
+        text = """
+        Restoran: Dayı Döner Kumru
+        Bol Bol Kumru Adet: 4 120,00 TL
+        Toplam: 480,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert len(result.items) >= 1
+        item = next((i for i in result.items if "Kumru" in i["name"]), None)
+        assert item is not None
+        assert item["quantity"] == 4
+        assert item["unit_price"] == 120.0
+
+    def test_mixed_platform_items_food_content(self):
+        """Karışık format ürünlerinden food_content oluşturulur."""
+        text = """
+        Restoran: Test
+        2x İskender 130,00 TL
+        1x Ayran 20,00 TL
+        Toplam: 280,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert result.food_content == "2x İskender, 1x Ayran"
+
+
+class TestRealWorldOCR:
+    """Gerçek ekran görüntüsü OCR metinlerinden platform-spesifik parsing testleri."""
+
+    # ── Yemeksepeti gerçek dünya senaryoları ──────────────────────────────────
+
+    def test_yemeksepeti_real_dominos_food_content(self):
+        """
+        Yemeksepeti Domino's ekran görüntüsü:
+        1x Pizza X-Large ve 1x X-Large Cheddar Sos doğru ayrıştırılmalı.
+        """
+        text = """
+        Yardım Merkezi
+        Sipariş numarası #c90p-2603-wa1d
+        15 Oca 18:17 tarihinde teslim edildi
+        Siparişin verildiği yer:
+        Domino's Pizza
+        Teslim edildiği yer:
+        Dedekorkut Konya Şeker Sanayi Ve Ticaret A.Ş 25
+        Meram Konya 42090
+        1x Pizza X-Large 550,00 TL
+        Bol Malzemos (XL) (sarımsaklı kenar i...
+        1x X-Large Cheddar Sos (80 gr.) 85,00 TL
+        Ara Toplam 620,00 TL
+        İndirim -120,00 TL
+        KDV dahil 33,64 TL
+        Kupon: sepet - 250,00 TL
+        Toplam (KDV dahil) 250,00 TL
+        Ödeme şekli:
+        Online Ödeme 250,00 TL
+        Faturayı indir
+        """
+        result = parse_receipt_text(text)
+        assert result.food_content is not None
+        assert "1x Pizza X-Large" in result.food_content
+        assert "Cheddar Sos" in result.food_content
+        # Boş dönmemeli (eski hata)
+        assert len(result.items) >= 2
+        assert result.total_amount == 250.0
+        assert "DOMINO" in result.restaurant_name
+
+    def test_yemeksepeti_nx_strips_price(self):
+        """Yemeksepeti Nx satırında fiyat temizlenip sadece yemek adı alınmalı."""
+        text = """
+        Siparişin verildiği yer:
+        Burger King
+        1x Whopper Menü 220,00 TL
+        2x Nuggets 6'lı 75,00 TL
+        Toplam (KDV dahil) 370,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert len(result.items) == 2
+        names = [i["name"] for i in result.items]
+        assert "Whopper Menü" in names
+        assert "Nuggets 6'lı" in names
+        # Fiyat yemek adından çıkarılmış olmalı
+        assert all("TL" not in n for n in names)
+        assert all("," not in n for n in names)
+
+    # ── Getir gerçek dünya senaryoları ────────────────────────────────────────
+
+    def test_getir_real_sepet_section(self):
+        """
+        Getir ekran görüntüsü: 'Sepet' bölümünden yemek adı çıkarılmalı.
+        Açıklama satırları (Tercihi, Gramaj vb.) atlanmalı.
+        """
+        text = """
+        Sipariş Detayı
+        Maydonoz Döner, Meram (Yenişehir Mah.)
+        Restoran Kuryesi
+        Sepet
+        Yok Böyle Menü 1
+        Tavuk Dürüm Tercihi: Tavuk Döner Medium Dürüm;
+        Gramaj Tercihi: 75 g Mayonez Tercihi: Sarımsaklı
+        Mayonez Soğan Tercihi: Soğansız ...
+        440,00 TL
+        Ödeme Detayı
+        Sipariş Tutarı 440,00 TL
+        Kazancın 290,00 TL
+        Ödenen Tutar 150,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert result.food_content is not None
+        assert "Yok Böyle Menü" in result.food_content
+        assert len(result.items) >= 1
+        item = result.items[0]
+        assert item["name"] == "Yok Böyle Menü"
+        assert item["quantity"] == 1
+        # Açıklama satırları ürün olarak alınmamalı
+        item_names = [i["name"].lower() for i in result.items]
+        assert not any("tercihi" in n for n in item_names)
+        assert not any("gramaj" in n for n in item_names)
+
+    def test_getir_sepet_multiple_items(self):
+        """Getir Sepet bölümünde birden fazla yemek olabilir."""
+        text = """
+        Restoran Kuryesi
+        Sepet
+        Whopper Menü 2
+        Nuggets 6'lı 1
+        Ödeme Detayı
+        Sipariş Tutarı 300,00 TL
+        Ödenen Tutar 300,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert len(result.items) >= 2
+        assert result.food_content is not None
+        assert "2x Whopper Menü" in result.food_content
+        assert "Nuggets" in result.food_content
+
+    # ── Trendyol gerçek dünya senaryoları ─────────────────────────────────────
+
+    def test_trendyol_real_multiline_adet(self):
+        """
+        Trendyol ekran görüntüsü: Yemek adı üst satırda, Adet: N alt satırda.
+        'Bol Bol Kumru' + 'Adet: 4' → 4x Bol Bol Kumru
+        """
+        text = """
+        Sipariş Detay
+        Dayı Döner Kumru (Ferhuniye)
+        Tekrarla
+        Asistan
+        Sipariş No: #10880363823
+        Sipariş Tarihi: 15 Ocak 2026 / 11:55
+        Teslimat: 4 Ürün Teslim Edildi
+        Toplam: 370 TL
+        Teslimat: Trendyol Go
+        Teslimat No: 9459664013
+        Restoran: Dayı Döner Kumru (Ferhuniye)
+        4 Ürün Teslim Edildi
+        Siparişiniz 15 Ocak Perşembe günü saat 12:28'de teslim edilmiştir.
+        Bol Bol Kumru
+        Adet: 4
+        130 TL
+        """
+        result = parse_receipt_text(text)
+        assert result.food_content is not None
+        assert "4x Bol Bol Kumru" in result.food_content
+        assert len(result.items) >= 1
+        item = next((i for i in result.items if "Kumru" in i["name"]), None)
+        assert item is not None
+        assert item["quantity"] == 4
+        # Alakasız satırlar (Sipariş Tarihi vb.) ürün olarak alınmamalı
+        item_names = [i["name"].lower() for i in result.items]
+        assert not any("sipariş" in n for n in item_names)
+        assert not any("teslimat" in n for n in item_names)
+
+    def test_trendyol_multiline_adet_with_price(self):
+        """Trendyol multi-line format: fiyat Adet: N satırının altında."""
+        text = """
+        Trendyol Yemek
+        Restoran: Dayı Döner Kumru (Ferhuniye)
+        Bol Bol Kumru
+        Adet: 4
+        130,00 TL
+        Toplam: 520,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert len(result.items) >= 1
+        item = next((i for i in result.items if "Kumru" in i["name"]), None)
+        assert item is not None
+        assert item["quantity"] == 4
+        assert item["unit_price"] == 130.0
+
+    def test_trendyol_no_false_items(self):
+        """
+        Trendyol OCR'da 'Adet:', 'Sipariş Tarihi' vb. satırlar
+        yanlışlıkla yemek adı olarak alınmamalı.
+        """
+        text = """
+        Trendyol Yemek
+        Sipariş No: #12345
+        Sipariş Tarihi: 15 Ocak 2026
+        Teslimat: 2 Ürün Teslim Edildi
+        Lavaş Döner
+        Adet: 2
+        İç Ayran
+        Adet: 1
+        Toplam: 300,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert len(result.items) == 2
+        names = [i["name"] for i in result.items]
+        assert "Lavaş Döner" in names
+        assert "İç Ayran" in names
+        # Yanlış ürünler olmamalı
+        assert "Sipariş Tarihi" not in names
+        assert "Sipariş No" not in names
+        quantities = {i["name"]: i["quantity"] for i in result.items}
+        assert quantities["Lavaş Döner"] == 2
+        assert quantities["İç Ayran"] == 1
+
+    def test_trendyol_multipage_deduplication(self):
+        """
+        Trendyol çift sayfa birleştirme: 2 ekran görüntüsünden gelen aynı
+        yemek satırı tekrarlanmamalı (4x Bol Bol Kumru yalnızca bir kez).
+        """
+        text = """
+        Sipariş Detay
+        Dayı Döner Kumru (Ferhuniye)
+        Sipariş No: #10880363823
+        Sipariş Tarihi: 15 Ocak 2026 / 11:55
+        Teslimat: 4 Ürün Teslim Edildi
+        Toplam: 370 TL
+        Restoran: Dayı Döner Kumru (Ferhuniye)
+        4 Ürün Teslim Edildi
+        Siparişiniz 15 Ocak Perşembe günü saat 12:28'de teslim edilmiştir.
+        Bol Bol Kumru
+        Adet: 4
+        130 TL
+        ---
+        Sipariş Detay
+        4 Ürün Teslim Edildi
+        Siparişiniz 15 Ocak Perşembe günü saat 12:28'de teslim edilmiştir.
+        Bol Bol Kumru
+        Adet: 4
+        130 TL
+        Sipariş Notu
+        Servis İstiyorum
+        Teslimat Adresi
+        Toplam: 370 TL
+        """
+        result = parse_receipt_text(text)
+        assert result.food_content is not None
+        # Tekrar olmamalı — yalnızca bir kez
+        assert result.food_content.count("4x Bol Bol Kumru") == 1
+        assert result.food_content == "4x Bol Bol Kumru"
+        # items listesinde de tekrar olmamalı
+        kumru_items = [i for i in result.items if "Kumru" in i["name"]]
+        assert len(kumru_items) == 1
+
+    def test_yemeksepeti_leading_whitespace_food_content(self):
+        """
+        Yemeksepeti: Satır başında boşluk/tab olsa bile 1x Pizza bulunmalı.
+        OCR bazen satır başına boşluk ekler.
+        """
+        text = """
+        Yardım Merkezi
+        Siparişin verildiği yer:
+        Domino's Pizza
+           1x Pizza X-Large 550,00 TL
+           1x X-Large Cheddar Sos (80 gr.) 85,00 TL
+        Toplam (KDV dahil) 250,00 TL
+        """
+        result = parse_receipt_text(text)
+        assert result.food_content is not None
+        assert "1x Pizza X-Large" in result.food_content
+        assert "Cheddar Sos" in result.food_content
+        assert len(result.items) >= 2
+        # Fiyat yemek adından çıkarılmış olmalı
+        names = [i["name"] for i in result.items]
+        assert all("550" not in n for n in names)
+        assert all("TL" not in n for n in names)
+
+    def test_yemeksepeti_real_dominos_nonempty(self):
+        """
+        Yemeksepeti Domino's: food_content kesinlikle boş dönmemeli.
+        Bu regresyon testi — eski hata tekrarlamasın.
+        """
+        text = """
+        Yardım Merkezi
+        Sipariş numarası #c90p-2603-wa1d
+        15 Oca 18:17 tarihinde teslim edildi
+        Siparişin verildiği yer:
+        Domino's Pizza
+        Teslim edildiği yer:
+        Dedekorkut Konya Şeker Sanayi Ve Ticaret A.Ş 25
+        Meram Konya 42090
+        1x Pizza X-Large 550,00 TL
+        Bol Malzemos (XL) (sarımsaklı kenar i...
+        1x X-Large Cheddar Sos (80 gr.) 85,00 TL
+        Ara Toplam 620,00 TL
+        İndirim -120,00 TL
+        KDV dahil 33,64 TL
+        Kupon: sepet - 250,00 TL
+        Toplam (KDV dahil) 250,00 TL
+        Ödeme şekli:
+        Online Ödeme 250,00 TL
+        Faturayı indir
+        """
+        result = parse_receipt_text(text)
+        # food_content boş dönmemeli — eski hata
+        assert result.food_content is not None
+        assert result.food_content != ""
+        assert "Pizza X-Large" in result.food_content
+        assert "Cheddar Sos" in result.food_content
