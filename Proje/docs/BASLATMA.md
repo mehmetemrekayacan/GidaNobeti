@@ -32,41 +32,25 @@ Kontrol: http://localhost:3000
    ```bash
    cd Proje\mobile
    flutter pub get
-   flutter run
+   flutter run --dart-define=API_BASE_URL=http://192.168.1.104:8000
    ```
 
 ### Fiziksel telefon ile
 
-- Telefon ve bilgisayar **aynı Wi‑Fi**’de olsun.
-- Bilgisayar IP’si: `ipconfig` ile bakın (örn. 192.168.1.104).
+- Ortak ağlarda (okul, yurt, kurumsal ağ vb.) **AP Isolation** nedeniyle cihazlar arası iletişim kapalı olabilir.
+- Bu yüzden fiziksel cihaz testinde en güvenli ve stabil yöntem: **USB üzerinden ADB Reverse tünelleme**.
 
-**USB ile:** Telefonu takın, sonra:
-```bash
-cd Proje\mobile
-flutter run --dart-define=API_HOST=192.168.1.104
-```
-
-**Wireless (USB şarj etmeden):**
-
-1. Bir kez USB ile bağlayın (USB hata ayıklama açık), sonra:
+1. Telefonu USB ile bağlayın (USB hata ayıklama açık), sonra:
    ```bash
-   adb tcpip 5555
+   adb reverse tcp:8000 tcp:8000
    ```
-2. Telefon IP’sini bulun (Ayarlar → Wi‑Fi → ağ → IP).
-3. USB’yi çekin:
-   ```bash
-   adb connect 192.168.1.101:5555
-   ```
-4. Uygulamayı çalıştırın (**mutlaka** bilgisayar IP'si ile, yoksa "connection timeout" alırsınız):
+2. Uygulamayı localhost üzerinden başlatın:
    ```bash
    cd Proje\mobile
-   flutter run --dart-define=API_HOST=192.168.1.104
+   flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000
    ```
-   `192.168.1.104` yerine kendi bilgisayar IP'nizi yazın (`ipconfig` ile bakın). Cihaz listesinde wireless cihaz seçilir.
 
-**Not:** USB’yi sadece wireless’ı ilk kurarken veya **telefonu yeniden başlattıktan** sonra takmanız gerekir. Her bilgisayar açılışında aynı Wi‑Fi’deyse sadece `adb connect 192.168.1.101:5555` yeterli.
-
-**Bağlantıyı kesmek:** `adb disconnect 192.168.1.101:5555` (bilgisayar artık o cihazı görmez; tekrar bağlanmak için `adb connect ...` yeterli).
+**Not:** Telefonu yeniden başlattığınızda veya USB bağlantısı koptuğunda `adb reverse` komutunu tekrar çalıştırın.
 
 ---
 
