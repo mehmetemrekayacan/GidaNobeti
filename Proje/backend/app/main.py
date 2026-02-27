@@ -21,7 +21,7 @@ from app.api.v1.admin import router as admin_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.incidents import router as incidents_router
 from app.db.session import engine, AsyncSessionLocal
-from app.services.risk_service import update_all_restaurants_risk_status
+from app.services.risk_service import run_risk_cron_loop
 
 # Sentry (TASK-BE-019) - SENTRY_DSN varsa aktif
 if settings.SENTRY_DSN:
@@ -117,23 +117,6 @@ async def root():
         "version": settings.APP_VERSION,
         "docs": "/docs" if settings.DEBUG else "Disabled in production",
     }
-
-
-async def run_risk_cron_loop():
-    """TASK-BE-014: Her N saniyede bir tüm restoran risklerini günceller."""
-    await asyncio.sleep(60)  # İlk çalışma 60 sn sonra (DB hazır olsun)
-    while True:
-        try:
-            if settings.RISK_CRON_ENABLED:
-                async with AsyncSessionLocal() as db:
-                    n = await update_all_restaurants_risk_status(db)
-                    if n > 0:
-                        logger.info("Risk cron: {} restoran risk güncellendi", n)
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            logger.exception("Risk cron hatası: {}", e)
-        await asyncio.sleep(settings.RISK_CRON_INTERVAL_SECONDS)
 
 
 # Startup Event

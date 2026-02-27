@@ -7,6 +7,8 @@ from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.core.deps import require_admin
+from app.db.models.user import User
 from app.db.models.restaurant import Restaurant, RiskStatus
 from app.schemas.restaurant import (
     RestaurantResponse,
@@ -170,15 +172,22 @@ async def get_restaurant(
     return restaurant
 
 
-@router.post("", response_model=RestaurantResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=RestaurantResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Yeni restoran oluştur (Sadece Admin)",
+    description="Bu endpoint sadece admin yetkisine sahip kullanıcılar (DORM_MANAGER, SYS_ADMIN) tarafından kullanılabilir.",
+)
 async def create_restaurant(
     restaurant: RestaurantCreate,
+    current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new restaurant
-    
-    **Note:** This endpoint should be restricted to admin users in production
+
+    Yetki: **Sadece Admin** (DORM_MANAGER, SYS_ADMIN)
     """
     # Create normalized name for OCR matching
     normalized_name = restaurant.name.upper().strip()
@@ -207,16 +216,22 @@ async def create_restaurant(
     return db_restaurant
 
 
-@router.put("/{restaurant_id}", response_model=RestaurantResponse)
+@router.put(
+    "/{restaurant_id}",
+    response_model=RestaurantResponse,
+    summary="Restoran güncelle (Sadece Admin)",
+    description="Bu endpoint sadece admin yetkisine sahip kullanıcılar (DORM_MANAGER, SYS_ADMIN) tarafından kullanılabilir.",
+)
 async def update_restaurant(
     restaurant_id: int,
     restaurant: RestaurantUpdate,
+    current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Update restaurant information
-    
-    **Note:** This endpoint should be restricted to admin users in production
+
+    Yetki: **Sadece Admin** (DORM_MANAGER, SYS_ADMIN)
     """
     # Get existing restaurant
     query = select(Restaurant).where(Restaurant.id == restaurant_id)

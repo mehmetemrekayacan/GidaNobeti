@@ -1,5 +1,43 @@
 """
-OCR Text Parser - Fiş metninden yapılandırılmış veri çıkarma (TASK-BE-009)
+OCR Text Parser - Platform Bazlı Zeki Ayrıştırıcı (TASK-BE-009)
+
+Geliştirilmiş Pipeline:
+  1. Platform Tespiti      → Trendyol / Getir / Yemeksepeti / Genel
+  2. Çöp Metin Filtreleme  → Çapa (anchor) tabanlı satır atlama
+  3. İçerik Yakalama       → Nx regex + alt-açıklama birleştirme
+  4. Tutar Yakalama        → Anahtar kelime öncelikli fiyat algılama
+
+─────────────────────────────────────────────────
+Nasıl Test Edilir?  (Admin Panel → UI Üzerinden)
+─────────────────────────────────────────────────
+1. Backend + Admin Panel'i başlatın:
+      cd Proje && docker-compose up -d
+      cd Proje/admin-panel && npm run dev
+
+2. Admin panelde oturum açın:
+      http://localhost:3000/login
+      TCKN: 11111111111  |  Şifre: Admin123!
+
+3. Sipariş yükleme sayfasını açın veya Swagger UI kullanın:
+      http://localhost:8000/docs → POST /v1/orders/upload
+
+4. Farklı platform fişleri ile test edin:
+      - Yemeksepeti ekran görüntüsü  (1x, 2x satırları, Toplam KDV dahil)
+      - Getir ekran görüntüsü        (Sepet bölümü, Ödenen Tutar)
+      - Trendyol ekran görüntüsü     (Adet: N formatı)
+      - Bulanık kağıt fiş fotoğrafı
+    - Soluk / buruşuk termal kağıt fiş
+
+5. Response'ta kontrol edin:
+      - restaurant_name → doğru restoran mı? (müşteri adı değil!)
+      - food_content    → ürünler doğru mu? (adres/telefon yok mu?)
+      - total_amount    → doğru tutar mı? (indirim öncesi değil!)
+
+İpucu: Teslimat adresi, müşteri adı gibi çöp metinlerin artık
+       yemek veya restoran olarak algılanmadığını doğrulayın.
+Not: Restoran adı bulunamazsa sistem artık hata fırlatmak yerine
+    "Bilinmeyen Restoran (Kağıt Fiş)" ile parse işlemine devam eder.
+─────────────────────────────────────────────────
 """
 import re
 from dataclasses import dataclass
@@ -7,8 +45,13 @@ from datetime import datetime
 from typing import Optional
 
 import logging
+from app.services.exceptions import ReceiptProcessingError
 
 logger = logging.getLogger(__name__)
+
+USER_FACING_PARSE_ERROR = (
+    "Fiş okunamadı veya restoran tespit edilemedi, lütfen daha net bir görüntü yükleyin"
+)
 
 
 @dataclass
@@ -61,6 +104,33 @@ UI_BLACKLIST = [
     "kampanyalar", "favoriler",
 ]
 
+# ── Çöp Metin Çapaları (Junk Anchors) ────────────────────────────────────────
+# Bu kalıplardan biriyle eşleşen satır VE ardından gelen N satır atlanır.
+# Böylece teslimat adresi, müşteri adı, sipariş notu gibi çöp metinler
+# yemek veya restoran adı olarak algılanmaz.
+# Format: (regex_pattern, lines_to_skip_after_anchor)
+_JUNK_ANCHOR_PATTERNS = [
+    # ── Müşteri bilgileri (müşteri adı restoran sanılmasın) ──
+    (r"müşteri\s*bilgi", 1),
+    (r"müşteri\s*ad[ıi]", 1),
+    (r"müşter.*ileti[sş]", 1),
+    # ── Adres bilgileri (adres yemek sanılmasın) ──
+    (r"teslim\s*edildi[gğ]i\s*yer", 2),   # "Teslim edildiği yer:" + 2 satır adres
+    (r"teslimat\s*adres", 2),              # "Teslimat Adresi:" + 2 satır adres
+    (r"teslim\s*adres", 2),
+    (r"fatura\s*adres", 2),
+    # ── Sipariş kaynağı (restoran tespiti için ayrı kullanılır, item'da atlanır) ──
+    (r"sipari[sş]in\s*verildi[gğ]i\s*yer", 1),
+    # ── Sipariş meta bilgileri ──
+    (r"sipari[sş]\s*notu", 1),             # "Sipariş Notu:" + not metni
+    (r"sipari[sş]\s*no\s*[:#]", 0),        # Sadece kendi satırı
+    (r"sipari[sş]\s*kodu", 0),
+    (r"sipari[sş]\s*numaras", 0),
+    # ── Ödeme bilgileri ──
+    (r"[oö]deme\s*[sş]ekli", 1),           # "Ödeme şekli:" + ödeme yöntemi
+    (r"[oö]deme\s*y[oö]ntemi", 1),
+]
+
 # Restoran adını belirlemek için anahtar kelime ipuçları.
 # Bu ifadelerden sonra gelen metin (aynı satır veya bir sonraki satır) restoran adıdır.
 RESTAURANT_KEYWORD_PATTERNS = [
@@ -70,6 +140,18 @@ RESTAURANT_KEYWORD_PATTERNS = [
     r"ma[gğ]aza\s*[:\-]",
     r"[sş]ube\s*[:\-]",
 ]
+
+# Trendyol kağıt fişlerinde restoran adı bazen önekli gelir:
+# "TRENDYOL-Meşhur Unkapanı Pilavcısı"
+TRENDYOL_PREFIX_RE = re.compile(r"^\s*trendyol\s*[-:]+\s*(.+?)\s*$", re.IGNORECASE)
+
+# Fallback restoran adayı içinde bu yemek türleri varsa restoran olarak alma.
+FALLBACK_FOOD_KEYWORDS_RE = re.compile(
+    r"\b(d[üu]r[üu]m|pizza|men[üu]|porsiyon|lahmacun|[cç]orba)\b",
+    re.IGNORECASE,
+)
+
+UNKNOWN_PAPER_RECEIPT_RESTAURANT = "Bilinmeyen Restoran (Kağıt Fiş)"
 # ── Toplam tutar pattern'leri ─────────────────────────────────────────────────
 # Öncelik sırasına göre: en spesifik → en genel
 # "Toplam (KDV dahil)" gibi kesin ifadeler en yüksek güvenilirliğe sahip.
@@ -179,6 +261,69 @@ _GETIR_DESCRIPTION_SKIP = [
 ]
 
 
+# ── Çöp Metin Filtresi ───────────────────────────────────────────────────────
+
+def _get_junk_indices(lines: list[str]) -> set[int]:
+    """
+    Çapa (anchor) tabanlı çöp indekslerini hesapla.
+
+    Bir çapa satırı eşleştiğinde, o satır + ardından gelen N satır
+    çöp olarak işaretlenir.  Böylece adres, müşteri adı, sipariş notu
+    gibi bilgiler yemek/restoran olarak algılanmaz.
+
+    Returns:
+        Atlanması gereken satır indekslerinin kümesi.
+    """
+    junk: set[int] = set()
+    i = 0
+    while i < len(lines):
+        line_lower = lines[i].strip().lower()
+        matched = False
+        for pattern, skip_after in _JUNK_ANCHOR_PATTERNS:
+            if re.search(pattern, line_lower):
+                junk.add(i)
+                for j in range(1, skip_after + 1):
+                    if i + j < len(lines):
+                        junk.add(i + j)
+                i += skip_after  # Atlanan satırları geç
+                matched = True
+                break
+        if not matched:
+            pass
+        i += 1
+    return junk
+
+
+def _build_item_candidate_lines(lines: list[str]) -> list[str]:
+    """
+    Item (ürün) ayrıştırması için temizlenmiş satır listesi oluştur.
+    Çöp çapalarını ve takipçi satırlarını kaldırır.
+    """
+    junk = _get_junk_indices(lines)
+    return [lines[i] for i in range(len(lines)) if i not in junk]
+
+
+def _is_sub_description(line: str) -> bool:
+    """
+    Satırın bir önceki yemeğin alt-açıklaması olup olmadığını kontrol et.
+
+    Alt-açıklama = Nx kalıbı YOK + fiyat etiketi YOK + uzunluk > 2.
+    Örnek: "Bol Malzemos (XL) (sarımsaklı kenar i..."
+    """
+    if not line or len(line) < 3:
+        return False
+    # Nx kalıbı varsa → yeni ürün, alt-açıklama değil
+    if re.search(r'\d+\s*[xX×]', line):
+        return False
+    # Fiyat etiketi varsa → alt-açıklama değil
+    if re.search(r'[\d,\.]+\s*(?:tl|₺|€)', line, re.IGNORECASE):
+        return False
+    # Toplam/özet satırıysa → alt-açıklama değil
+    if any(re.search(p, line, re.IGNORECASE) for p in ITEM_SKIP_PATTERNS):
+        return False
+    return True
+
+
 def _detect_platform(lines: list[str]) -> str:
     """
     OCR metninden platform tespiti yap.
@@ -237,12 +382,17 @@ def _parse_items_yemeksepeti(lines: list[str]) -> list[dict]:
     - Büyük/küçük harf duyarsız (?i) — '1X' ve '1x' aynı.
     - Satır başında boşluk/karakter olabilir (^ yok, re.search).
     - Eşleşen metinden fiyat kısmı re.sub ile güvenli şekilde silinir.
+    - Alt-açıklama satırları (Nx yok, fiyat yok) önceki ürüne eklenir.
     """
     items = []
-    for line in lines:
+    for idx, line in enumerate(lines):
         line_stripped = line.strip()
         m = _YEMEKSEPETI_ITEM_RE.search(line_stripped)
         if not m:
+            # Nx eşleşmedi — alt-açıklama olabilir mi?
+            if items and _is_sub_description(line_stripped):
+                # Önceki ürünün alt-açıklaması olarak ekle
+                items[-1]["name"] += f" ({line_stripped})"
             continue
 
         try:
@@ -606,24 +756,32 @@ ITEM_SKIP_PATTERNS = [
 def _parse_items(lines: list[str]) -> list[dict]:
     """
     Ürün listesi çıkar.
-    Platform tespiti yaptıktan sonra platforma özel parser çalıştırır.
-    Bulamazsa genel (generic) parser'a düşer.
+
+    Akış:
+      1. Platform tespiti (tüm satırlarla)
+      2. Çöp çapalarını filtrele → temiz satır listesi oluştur
+      3. Temiz satırları platforma özel parser'a ver
+      4. Bulamazsa genel (generic) parser'a düş
     """
     platform = _detect_platform(lines)
     logger.debug(f"Platform tespit edildi: {platform}")
 
+    # Çöp metin çapalarını filtrele (adres, müşteri adı, sipariş notu vb.)
+    clean_lines = _build_item_candidate_lines(lines)
+    logger.debug(f"Çöp filtresi: {len(lines)} satır → {len(clean_lines)} temiz satır")
+
     items: list[dict] = []
 
     if platform == "yemeksepeti":
-        items = _parse_items_yemeksepeti(lines)
+        items = _parse_items_yemeksepeti(clean_lines)
     elif platform == "getir":
-        items = _parse_items_getir(lines)
+        items = _parse_items_getir(clean_lines)
     elif platform == "trendyol":
-        items = _parse_items_trendyol(lines)
+        items = _parse_items_trendyol(clean_lines)
 
     # Platform-spesifik parser bulamadıysa genel parser'a düş
     if not items:
-        items = _parse_items_generic(lines)
+        items = _parse_items_generic(clean_lines)
 
     # ── Tekilleştirme (Deduplication) ─────────────────────────────────────────
     # Çoklu ekran görüntüsü birleştirildiğinde aynı yemek birden fazla
@@ -770,6 +928,24 @@ def _is_blacklisted_ui_text(text: str) -> bool:
     return False
 
 
+def _normalize_prefixed_restaurant_name(text: str) -> str:
+    """TRENDYOL- benzeri önekleri temizleyip restoran adını döndür."""
+    if not text:
+        return ""
+    s = text.strip()
+    m = TRENDYOL_PREFIX_RE.match(s)
+    if m:
+        return m.group(1).strip()
+    return s
+
+
+def _is_food_like_candidate(text: str) -> bool:
+    """Fallback adayında bariz yemek türü varsa True döndür."""
+    if not text:
+        return False
+    return bool(FALLBACK_FOOD_KEYWORDS_RE.search(text))
+
+
 def _extract_restaurant_name(lines: list[str]) -> Optional[str]:
     """
     Restoran ismini çıkar.
@@ -782,16 +958,22 @@ def _extract_restaurant_name(lines: list[str]) -> Optional[str]:
     # ── Aşama 1: Anahtar kelime tabanlı tespit ───────────────────────────────
     for i, line in enumerate(lines):
         line_stripped = line.strip()
+
+        # 1A) TRENDYOL- prefix formatı: doğrudan restoran adı gibi kabul et
+        prefixed = _normalize_prefixed_restaurant_name(line_stripped)
+        if prefixed != line_stripped and len(prefixed) >= 2 and not _is_blacklisted_ui_text(prefixed):
+            return prefixed
+
         for kw_pattern in RESTAURANT_KEYWORD_PATTERNS:
             kw_match = re.search(kw_pattern, line_stripped, re.IGNORECASE)
             if kw_match:
                 # Anahtar kelimeden sonra aynı satırda metin var mı?
-                after_kw = line_stripped[kw_match.end():].strip()
+                after_kw = _normalize_prefixed_restaurant_name(line_stripped[kw_match.end():].strip())
                 if after_kw and len(after_kw) >= 2 and not _is_blacklisted_ui_text(after_kw):
                     return after_kw
                 # Bir sonraki satırı kontrol et
                 if i + 1 < len(lines):
-                    next_line = lines[i + 1].strip()
+                    next_line = _normalize_prefixed_restaurant_name(lines[i + 1].strip())
                     if (
                         len(next_line) >= 2
                         and not _is_blacklisted_ui_text(next_line)
@@ -800,10 +982,15 @@ def _extract_restaurant_name(lines: list[str]) -> Optional[str]:
                         return next_line
 
     # ── Aşama 2: İlk anlamlı satır (fallback) ───────────────────────────────
+    # Çöp çapalarıyla işaretlenmiş satırları da atla (müşteri adı, adres vb.)
+    junk = _get_junk_indices(lines)
     candidates = []
     for i, line in enumerate(lines):
         line = line.strip()
         if len(line) < 2:
+            continue
+        # Çapa tabanlı çöp indekslerini atla (müşteri adı restoran sanılmasın)
+        if i in junk:
             continue
         # Kara listedeki UI metinlerini atla
         if _is_blacklisted_ui_text(line):
@@ -816,9 +1003,12 @@ def _extract_restaurant_name(lines: list[str]) -> Optional[str]:
         # Saat/tarih içeren satırları atla
         if _is_time_format(line):
             continue
+        # Fallback'te bariz yemek türleri restoran adı olamaz
+        if _is_food_like_candidate(line):
+            continue
         # İlk 10 satır içinde, makul uzunlukta (2-60 karakter)
         if i < 10 and 2 <= len(line) <= 60:
-            candidates.append(line)
+            candidates.append(_normalize_prefixed_restaurant_name(line))
     if candidates:
         return candidates[0]
     return None
@@ -835,29 +1025,45 @@ def parse_receipt_text(raw_text: str) -> ParsedReceipt:
         ParsedReceipt dataclass
     """
     if not raw_text or not raw_text.strip():
-        return ParsedReceipt()
+        raise ReceiptProcessingError(USER_FACING_PARSE_ERROR, "PARSER_UNREADABLE")
 
-    lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
+    try:
+        lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
 
-    # \u00c7oklu g\u00f6rsel ay\u0131r\u0131c\u0131s\u0131n\u0131 (---) atla (multi-page OCR birle\u015ftirme)
-    lines = [l for l in lines if l != "---"]
+        # \u00c7oklu g\u00f6rsel ay\u0131r\u0131c\u0131s\u0131n\u0131 (---) atla (multi-page OCR birle\u015ftirme)
+        lines = [l for l in lines if l != "---"]
 
-    restaurant_name = _extract_restaurant_name(lines)
-    total_amount = _parse_total(lines)
-    receipt_date = _parse_date(lines)
-    items = _parse_items(lines)
-    food_content = _build_food_content(items)
+        if not lines:
+            raise ReceiptProcessingError(USER_FACING_PARSE_ERROR, "PARSER_UNREADABLE")
 
-    if restaurant_name:
+        restaurant_name = _extract_restaurant_name(lines)
+        total_amount = _parse_total(lines)
+        receipt_date = _parse_date(lines)
+        items = _parse_items(lines)
+        food_content = _build_food_content(items)
+
+        # Kritik güncelleme: restoran tespit edilemese de parse akışını kesme.
+        if not restaurant_name:
+            restaurant_name = UNKNOWN_PAPER_RECEIPT_RESTAURANT
+
         restaurant_name = _normalize_restaurant_name(restaurant_name)
 
-    return ParsedReceipt(
-        restaurant_name=restaurant_name or None,
-        total_amount=total_amount,
-        receipt_date=receipt_date,
-        items=items,
-        food_content=food_content,
-    )
+        # Ek güvenlik: tamamen alakasız içerikte boş parse sonucu oluşmasın
+        if total_amount is None and not items and not food_content:
+            raise ReceiptProcessingError(USER_FACING_PARSE_ERROR, "PARSER_UNREADABLE")
+
+        return ParsedReceipt(
+            restaurant_name=restaurant_name,
+            total_amount=total_amount,
+            receipt_date=receipt_date,
+            items=items,
+            food_content=food_content,
+        )
+    except ReceiptProcessingError:
+        raise
+    except Exception as e:
+        logger.exception("Receipt parsing failed: %s", e)
+        raise ReceiptProcessingError(USER_FACING_PARSE_ERROR, "PARSER_UNREADABLE")
 
 
 class ParserService:

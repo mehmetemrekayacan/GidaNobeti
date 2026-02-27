@@ -19,6 +19,7 @@ from app.db.models.user import User
 from app.services.ocr_service import ocr_service
 from app.services.parser_service import parser_service
 from app.services.restaurant_service import find_or_create_restaurant
+from app.services.exceptions import ReceiptProcessingError
 from app.schemas.order import (
     OrderUploadResponse,
     OrderHistoryListResponse,
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 MAX_FILES = 2  # Trendyol gibi uzun fişler için max 2 görsel
-ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/jpg"}
+ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 @router.get("/my-history", response_model=OrderHistoryListResponse)
@@ -119,7 +120,7 @@ async def get_my_order_history(
 
 
 @router.post("/upload", response_model=OrderUploadResponse)
-@limiter.limit("60/hour")
+@limiter.limit("5/minute")
 async def upload_receipt(
     request: Request,
     files: List[UploadFile] = File(...),
@@ -143,10 +144,11 @@ async def upload_receipt(
 
     for file in files:
         # Validasyon
-        if file.content_type and file.content_type.lower() not in ALLOWED_CONTENT_TYPES:
+        content_type = (file.content_type or "").lower()
+        if content_type not in ALLOWED_CONTENT_TYPES:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Sadece JPEG/PNG kabul edilir",
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail="Sadece resim formatları desteklenmektedir",
             )
 
         content = await file.read()
@@ -160,13 +162,24 @@ async def upload_receipt(
             text, confidence = ocr_service.extract(content)
             ocr_texts.append(text)
             total_confidence += confidence
+        except ReceiptProcessingError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"detail": e.detail, "error_code": e.error_code},
+            )
         except ValueError as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"detail": str(e), "error_code": "OCR_UNREADABLE"},
+            )
         except Exception as e:
             logger.exception("OCR failed")
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Fiş okunamadı, lütfen daha net bir fotoğraf deneyin",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "detail": "Fiş okunamadı veya restoran tespit edilemedi, lütfen daha net bir görüntü yükleyin",
+                    "error_code": "OCR_UNREADABLE",
+                },
             )
         finally:
             del content  # KVKK: RAM'den hemen sil
@@ -178,11 +191,34 @@ async def upload_receipt(
     if not raw_text.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Fişten metin çıkarılamadı",
+            detail={
+                "detail": "Fiş okunamadı veya restoran tespit edilemedi, lütfen daha net bir görüntü yükleyin",
+                "error_code": "OCR_UNREADABLE",
+            },
         )
 
     # Parse
-    parsed = parser_service.parse(raw_text)
+    try:
+        parsed = parser_service.parse(raw_text)
+    except ReceiptProcessingError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"detail": e.detail, "error_code": e.error_code},
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"detail": str(e), "error_code": "PARSER_UNREADABLE"},
+        )
+    except Exception:
+        logger.exception("Receipt parsing failed")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "detail": "Fiş okunamadı veya restoran tespit edilemedi, lütfen daha net bir görüntü yükleyin",
+                "error_code": "PARSER_UNREADABLE",
+            },
+        )
 
     # Restaurant find/create
     restaurant = None

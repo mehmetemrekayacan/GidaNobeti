@@ -3,22 +3,24 @@ Risk Analysis Service - Otomatik risk statüsü güncelleme (TASK-BE-014/015)
 - Tek restoran: update_restaurant_risk_status (incident sonrası çağrılır)
 - Tüm restoranlar: update_all_restaurants_risk_status (cron ile saatlik)
 """
-import logging
+import asyncio
+import traceback
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
+from loguru import logger
 
+from app.core.config import settings
+from app.db.session import AsyncSessionLocal
 from app.db.models.incident import HealthIncident
 from app.db.models.order import Order
 from app.db.models.restaurant import Restaurant, RiskStatus
-
-logger = logging.getLogger(__name__)
 
 # RED_FLAG olduğunda çağrılacak hook (bildirim vb. - ileride genişletilebilir)
 def on_risk_red_flag(restaurant_id: int, restaurant_name: str | None) -> None:
     """RED_FLAG olduğunda tetiklenir; log + ileride push/email eklenebilir."""
     logger.warning(
-        "Restoran risk RED_FLAG: id=%s name=%s",
+        "Restoran risk RED_FLAG: id={} name={}",
         restaurant_id,
         restaurant_name or "?",
     )
@@ -94,7 +96,7 @@ async def update_restaurant_risk_status(db: AsyncSession, restaurant_id: int) ->
         restaurant.risk_reason = reason
         await db.flush()
         logger.info(
-            "Restaurant %s risk updated: %s → %s (%s)",
+            "Restaurant {} risk updated: {} → {} ({})",
             restaurant_id, current.value, new_status.value, reason or "",
         )
         if new_status == RiskStatus.RED_FLAG and current != RiskStatus.RED_FLAG:
@@ -115,7 +117,38 @@ async def update_all_restaurants_risk_status(db: AsyncSession) -> int:
             await update_restaurant_risk_status(db, rid)
             count += 1
         except Exception as e:
-            logger.exception("Risk update failed for restaurant %s: %s", rid, e)
+            logger.error(
+                "Risk update failed for restaurant {}. error_type={} error={} traceback={}",
+                rid,
+                type(e).__name__,
+                str(e),
+                traceback.format_exc(),
+            )
     if ids:
         await db.commit()
     return count
+
+
+async def run_risk_cron_loop() -> None:
+    """Periyodik risk cron loop; hata olsa da döngü kırılmaz."""
+    await asyncio.sleep(60)  # İlk çalışma 60 sn sonra (DB hazır olsun)
+    while True:
+        try:
+            if settings.RISK_CRON_ENABLED:
+                async with AsyncSessionLocal() as db:
+                    n = await update_all_restaurants_risk_status(db)
+                    if n > 0:
+                        logger.info("Risk cron: {} restoran risk güncellendi", n)
+        except asyncio.CancelledError:
+            logger.info("Risk cron loop cancelled")
+            break
+        except Exception as e:
+            logger.error(
+                "Risk cron loop failed. interval={}s error_type={} error={} traceback={}",
+                settings.RISK_CRON_INTERVAL_SECONDS,
+                type(e).__name__,
+                str(e),
+                traceback.format_exc(),
+            )
+
+        await asyncio.sleep(settings.RISK_CRON_INTERVAL_SECONDS)
