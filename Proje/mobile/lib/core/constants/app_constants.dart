@@ -1,9 +1,5 @@
 /// App-wide constants
 class AppConstants {
-  // API Configuration
-  static const String baseUrlDev = 'http://localhost:8000';
-  static const String baseUrlProd = 'https://api.gidanobeti.gov.tr';
-  
   // API Version
   static const String apiVersion = 'v1';
   

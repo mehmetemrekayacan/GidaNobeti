@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../bloc/restaurant_bloc.dart';
 import '../../../core/api/models/restaurant_models.dart';
+import '../../../core/router/app_routes.dart';
 
 class RestaurantListScreen extends StatelessWidget {
   const RestaurantListScreen({super.key});
@@ -369,10 +371,9 @@ class RestaurantCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: () {
-          Navigator.pushNamed(
-            context,
-            '/restaurant-detail',
-            arguments: restaurant.id,
+          context.pushNamed(
+            AppRoutes.restaurantDetailName,
+            pathParameters: AppRoutes.restaurantDetailParameters(restaurant.id),
           );
         },
         borderRadius: BorderRadius.circular(12),

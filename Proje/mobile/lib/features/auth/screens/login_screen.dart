@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/app_routes.dart';
 import '../bloc/auth_bloc.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -52,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 );
             } else if (state is AuthAuthenticated) {
               // Navigate to home screen
-              Navigator.pushReplacementNamed(context, '/home');
+              context.goNamed(AppRoutes.homeName);
             }
           },
           child: BlocBuilder<AuthBloc, AuthState>(
@@ -195,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: isLoading
                             ? null
                             : () {
-                                Navigator.pushNamed(context, '/register');
+                                context.pushNamed(AppRoutes.registerName);
                               },
                         child: const Text(
                           'Hesabınız yok mu? Kayıt Olun',

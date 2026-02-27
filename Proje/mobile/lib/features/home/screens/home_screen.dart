@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/api/services/restaurant_api_service.dart';
 import '../../../core/api/models/restaurant_models.dart';
+import '../../../core/router/app_routes.dart';
 import '../../auth/bloc/auth_bloc.dart';
-import '../../restaurant/screens/restaurant_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
         listener: (context, state) {
           if (state is AuthUnauthenticated) {
             // Navigate to login screen after logout
-            Navigator.pushReplacementNamed(context, '/login');
+            context.goNamed(AppRoutes.loginName);
           }
         },
         child: BlocBuilder<AuthBloc, AuthState>(
@@ -217,17 +218,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: Text(r.name),
                       subtitle: Text(_riskLabel(r.riskStatus)),
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => RestaurantDetailScreen(restaurantId: r.id),
-                          ),
+                        context.pushNamed(
+                          AppRoutes.restaurantDetailName,
+                          pathParameters:
+                              AppRoutes.restaurantDetailParameters(r.id),
                         );
                       },
                     )),
                     if (list.length > 5)
                       TextButton(
-                        onPressed: () => Navigator.pushNamed(context, '/risky-restaurants'),
+                        onPressed: () =>
+                            context.pushNamed(AppRoutes.riskyRestaurantsName),
                         child: const Text('Tümünü gör'),
                       ),
                   ],
@@ -260,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: 'Restoranlar',
                 color: Colors.green,
                 onTap: () {
-                  Navigator.pushNamed(context, '/restaurants');
+                  context.pushNamed(AppRoutes.restaurantListName);
                 },
               ),
               _buildQuickActionCard(
@@ -268,42 +269,44 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icons.restaurant,
                 title: 'Riskli Restoranlar',
                 color: Colors.red,
-                onTap: () => Navigator.pushNamed(context, '/risky-restaurants'),
+                onTap: () =>
+                    context.pushNamed(AppRoutes.riskyRestaurantsName),
               ),
               _buildQuickActionCard(
                 context,
                 icon: Icons.upload_file,
                 title: 'Sipariş Yükle',
                 color: Colors.blue,
-                onTap: () => Navigator.pushNamed(context, '/order-upload'),
+                onTap: () => context.pushNamed(AppRoutes.orderUploadName),
               ),
               _buildQuickActionCard(
                 context,
                 icon: Icons.history,
                 title: 'Geçmiş',
                 color: Colors.green,
-                onTap: () => Navigator.pushNamed(context, '/order-history'),
+                onTap: () => context.pushNamed(AppRoutes.orderHistoryName),
               ),
               _buildQuickActionCard(
                 context,
                 icon: Icons.medical_services_outlined,
                 title: 'Sağlık Sorunu Bildir',
                 color: Colors.orange,
-                onTap: () => Navigator.pushNamed(context, '/incident-report'),
+                onTap: () =>
+                    context.pushNamed(AppRoutes.incidentReportName),
               ),
               _buildQuickActionCard(
                 context,
                 icon: Icons.list_alt,
                 title: 'Bildirimlerim',
                 color: Colors.teal,
-                onTap: () => Navigator.pushNamed(context, '/my-incidents'),
+                onTap: () => context.pushNamed(AppRoutes.myIncidentsName),
               ),
               _buildQuickActionCard(
                 context,
                 icon: Icons.settings,
                 title: 'Profil',
                 color: Colors.grey,
-                onTap: () => Navigator.pushNamed(context, '/profile'),
+                onTap: () => context.pushNamed(AppRoutes.profileName),
               ),
             ],
           ),

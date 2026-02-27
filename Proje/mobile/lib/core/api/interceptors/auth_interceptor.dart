@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'dart:convert';
 
@@ -7,19 +8,23 @@ import 'dart:convert';
 class AuthInterceptor extends Interceptor {
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'auth_user';
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   @override
   void onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    // Get token from storage
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_tokenKey);
+    try {
+      final token = await _secureStorage.read(key: _tokenKey);
 
-    // Add Authorization header if token exists
-    if (token != null && token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $token';
+      if (token != null && token.isNotEmpty) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AuthInterceptor.onRequest token read error: $e');
+      }
     }
 
     handler.next(options);
@@ -29,10 +34,14 @@ class AuthInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // Handle 401 Unauthorized - token expired or invalid
     if (err.response?.statusCode == 401) {
-      // Clear token and user
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_tokenKey);
-      await prefs.remove(_userKey);
+      try {
+        await _secureStorage.delete(key: _tokenKey);
+        await _secureStorage.delete(key: _userKey);
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('AuthInterceptor.onError secure clear error: $e');
+        }
+      }
     }
 
     handler.next(err);
@@ -40,38 +49,64 @@ class AuthInterceptor extends Interceptor {
 
   /// Save token to storage
   static Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+    try {
+      await _secureStorage.write(key: _tokenKey, value: token);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AuthInterceptor.saveToken error: $e');
+      }
+      rethrow;
+    }
   }
 
   /// Save user JSON (for session restore)
   static Future<void> saveUser(Map<String, dynamic> userJson) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_userKey, jsonEncode(userJson));
+    try {
+      await _secureStorage.write(key: _userKey, value: jsonEncode(userJson));
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AuthInterceptor.saveUser error: $e');
+      }
+      rethrow;
+    }
   }
 
   /// Get token from storage
   static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+    try {
+      return await _secureStorage.read(key: _tokenKey);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AuthInterceptor.getToken error: $e');
+      }
+      return null;
+    }
   }
 
   /// Get saved user JSON (for session restore)
   static Future<Map<String, dynamic>?> getUserJson() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_userKey);
-    if (raw == null) return null;
     try {
+      final raw = await _secureStorage.read(key: _userKey);
+      if (raw == null || raw.isEmpty) return null;
       return jsonDecode(raw) as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AuthInterceptor.getUserJson error: $e');
+      }
       return null;
     }
   }
 
   /// Clear token and user from storage
   static Future<void> clearToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_userKey);
+    try {
+      await _secureStorage.delete(key: _tokenKey);
+      await _secureStorage.delete(key: _userKey);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AuthInterceptor.clearToken error: $e');
+      }
+      rethrow;
+    }
   }
 }

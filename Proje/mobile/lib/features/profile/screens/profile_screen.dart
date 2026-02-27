@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../../core/api/models/auth_models.dart';
+import '../../../core/router/app_routes.dart';
 
 /// TASK-MB-014: Profile screen - user info, menu (Sipariş Geçmişi, Hakkında, Çıkış Yap)
 class ProfileScreen extends StatelessWidget {
@@ -18,7 +20,7 @@ class ProfileScreen extends StatelessWidget {
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthUnauthenticated) {
-            Navigator.pushReplacementNamed(context, '/login');
+            context.goNamed(AppRoutes.loginName);
           }
         },
         child: BlocBuilder<AuthBloc, AuthState>(
@@ -35,7 +37,7 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 24),
                   _MenuSection(
                     onOrderHistory: () =>
-                        Navigator.pushNamed(context, '/order-history'),
+                        context.pushNamed(AppRoutes.orderHistoryName),
                     onNotifications: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Bildirim ayarları yakında...')),

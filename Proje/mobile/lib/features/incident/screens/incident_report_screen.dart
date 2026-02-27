@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api/models/order_models.dart';
 import '../../../core/api/services/order_api_service.dart';
 import '../../../core/api/services/incident_api_service.dart';
+import '../../../core/router/app_routes.dart';
 
 /// Sağlık sorunu bildirimi - TASK-MB-015
 class IncidentReportScreen extends StatefulWidget {
@@ -15,18 +17,26 @@ class IncidentReportScreen extends StatefulWidget {
 class _IncidentReportScreenState extends State<IncidentReportScreen> {
   final OrderApiService _orderApi = OrderApiService();
   final IncidentApiService _incidentApi = IncidentApiService();
+  final _formKey = GlobalKey<FormState>();
 
   List<OrderHistoryEntry> _orders = [];
   bool _loadingOrders = true;
   String? _orderError;
 
-  OrderHistoryEntry? _selectedOrder;
+  String? _selectedOrderId;
   final _symptomsController = TextEditingController();
-  int _severity = 3;
+  String? _selectedSeverity;
+  bool _isDoctorVerified = false;
   bool _submitting = false;
   String? _submitError;
   bool _success = false;
   List<String> _nextSteps = [];
+
+  static const Map<String, int> _severityToValue = {
+    'Hafif': 1,
+    'Orta': 3,
+    'Ağır': 5,
+  };
 
   @override
   void initState() {
@@ -47,17 +57,13 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
     });
     try {
       final res = await _orderApi.getMyHistory(page: 1, limit: 30);
-      final now = DateTime.now();
-      final threeDaysAgo = now.subtract(const Duration(days: 3));
-      final recent = res.items
-          .where((o) => o.declaredAt.isAfter(threeDaysAgo))
-          .toList();
       if (mounted) {
         setState(() {
-          _orders = recent;
+          _orders = res.items;
           _loadingOrders = false;
-          if (_orders.isNotEmpty && _selectedOrder == null) {
-            _selectedOrder = _orders.first;
+          _selectedSeverity ??= 'Orta';
+          if (_orders.isNotEmpty && _selectedOrderId == null) {
+            _selectedOrderId = _orders.first.id;
           }
         });
       }
@@ -66,6 +72,7 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
         setState(() {
           _orderError = e.toString().replaceFirst('Exception: ', '');
           _loadingOrders = false;
+          _selectedSeverity ??= 'Orta';
         });
       }
     }
@@ -148,21 +155,28 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
   }
 
   Future<void> _submit() async {
-    final order = _selectedOrder;
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) return;
+
+    OrderHistoryEntry? order;
+    for (final o in _orders) {
+      if (o.id == _selectedOrderId) {
+        order = o;
+        break;
+      }
+    }
+
     final symptoms = _symptomsController.text.trim();
-    if (order == null) {
-      setState(() => _submitError = 'Lütfen şüphelenilen siparişi seçin.');
+    final severityLabel = _selectedSeverity;
+    final severityLevel =
+        severityLabel == null ? null : _severityToValue[severityLabel];
+    if (order == null || severityLevel == null) {
+      setState(() {
+        _submitError = 'Lütfen zorunlu alanları doldurun.';
+      });
       return;
     }
-    if (symptoms.length < 10) {
-      setState(() =>
-          _submitError = 'Semptomları en az 10 karakter olacak şekilde yazın.');
-      return;
-    }
-    if (symptoms.length > 2000) {
-      setState(() => _submitError = 'Semptomlar en fazla 2000 karakter olabilir.');
-      return;
-    }
+
     setState(() {
       _submitting = true;
       _submitError = null;
@@ -171,7 +185,8 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
       final res = await _incidentApi.reportIncident(
         suspectedOrderId: order.id,
         symptoms: symptoms,
-        severityLevel: _severity,
+        severityLevel: severityLevel,
+        isVerifiedByDoctor: _isDoctorVerified,
       );
       if (mounted) {
         setState(() {
@@ -200,11 +215,9 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sağlık Sorunu Bildir'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
         actions: [
           TextButton.icon(
-            onPressed: () => Navigator.pushNamed(context, '/my-incidents'),
+            onPressed: () => context.pushNamed(AppRoutes.myIncidentsName),
             icon: const Icon(Icons.list_alt, size: 20, color: Colors.white),
             label: const Text('Bildirimlerim', style: TextStyle(color: Colors.white)),
           ),
@@ -212,16 +225,18 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             Card(
-              color: Colors.blue.shade50,
+              color: Theme.of(context).colorScheme.primaryContainer,
               child: const Padding(
                 padding: EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue),
+                    Icon(Icons.info_outline),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -236,7 +251,7 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
             const SizedBox(height: 20),
 
             const Text(
-              'Şüphelenilen sipariş (son 3 gün)',
+              'Hangi siparişten şüpheleniliyor?',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
@@ -244,51 +259,79 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
             ),
             const SizedBox(height: 8),
             if (_loadingOrders)
-              const Center(
-                  child: Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
-              ))
+              const Row(
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 10),
+                  Text('Siparişler yükleniyor...'),
+                ],
+              )
             else if (_orderError != null)
               Text(_orderError!, style: TextStyle(color: Colors.red[700]))
-            else if (_orders.isEmpty)
-              const Text(
-                'Son 3 günde sipariş bulunamadı. Sipariş geçmişiniz boş olabilir.',
-                style: TextStyle(color: Colors.grey),
-              )
-            else
-              DropdownButtonFormField<OrderHistoryEntry>(
-                value: _selectedOrder,
+            else ...[
+              DropdownButtonFormField<String>(
+                value: _orders.isEmpty ? null : _selectedOrderId,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
                 items: _orders.map((o) {
-                  final label =
-                      '${o.restaurant?.name ?? "Restoran"} • ${DateFormat("d.M.y HH:mm").format(o.declaredAt)}';
-                  return DropdownMenuItem(
-                    value: o,
+                  final restaurantName = o.restaurant?.name ?? 'Restoran';
+                  final orderDate = DateFormat('dd.MM.yyyy').format(o.declaredAt);
+                  return DropdownMenuItem<String>(
+                    value: o.id,
                     child: Text(
-                      label,
+                      '$restaurantName - $orderDate',
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
                   );
                 }).toList(),
-                onChanged: (v) => setState(() => _selectedOrder = v),
+                onChanged: _orders.isEmpty
+                    ? null
+                    : (v) {
+                        setState(() {
+                          _selectedOrderId = v;
+                          _submitError = null;
+                        });
+                      },
+                validator: (value) {
+                  if (_orders.isEmpty) {
+                    return null;
+                  }
+                  if (value == null || value.isEmpty) {
+                    return 'Lütfen şüphelenilen siparişi seçin.';
+                  }
+                  return null;
+                },
               ),
+              if (_orders.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Bildirim yapabilmek için en az bir geçmiş siparişiniz bulunmalıdır.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
             const SizedBox(height: 20),
 
             const Text(
-              'Semptomlar (en az 10 karakter)',
+              'Belirtiler (Semptomlar)',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
             ),
             const SizedBox(height: 8),
-            TextField(
+            TextFormField(
               controller: _symptomsController,
               keyboardType: TextInputType.multiline,
               textInputAction: TextInputAction.newline,
@@ -300,48 +343,68 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
                 alignLabelWithHint: true,
               ),
               onChanged: (_) => setState(() => _submitError = null),
+              validator: (value) {
+                final symptoms = (value ?? '').trim();
+                if (symptoms.isEmpty) {
+                  return 'Belirti alanı boş bırakılamaz.';
+                }
+                if (symptoms.length < 10) {
+                  return 'Semptomları en az 10 karakter olacak şekilde yazın.';
+                }
+                if (symptoms.length > 2000) {
+                  return 'Semptomlar en fazla 2000 karakter olabilir.';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 20),
 
             const Text(
-              'Şiddet (1 = hafif, 5 = çok ciddi)',
+              'Şiddet Seviyesi',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: List.generate(5, (i) {
-                final n = i + 1;
-                final selected = _severity == n;
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Material(
-                      color: selected ? Colors.orange : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
-                      child: InkWell(
-                        onTap: () => setState(() => _severity = n),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Text(
-                              '$n',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: selected ? Colors.white : Colors.grey[700],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+            DropdownButtonFormField<String>(
+              value: _selectedSeverity,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+              ),
+              items: _severityToValue.keys
+                  .map(
+                    (level) => DropdownMenuItem<String>(
+                      value: level,
+                      child: Text(level),
                     ),
-                  ),
-                );
-              }),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedSeverity = value;
+                  _submitError = null;
+                });
+              },
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Lütfen şiddet seviyesi seçin.';
+                }
+                return null;
+              },
             ),
+            const SizedBox(height: 16),
+
+            SwitchListTile.adaptive(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              title: const Text('Hastaneye gidildi / Doktor onaylı'),
+              subtitle: const Text('Doktor tarafından doğrulandıysa işaretleyin'),
+              value: _isDoctorVerified,
+              onChanged: _submitting
+                  ? null
+                  : (value) => setState(() => _isDoctorVerified = value),
+            ),
+
             const SizedBox(height: 24),
 
             if (_submitError != null) ...[
@@ -356,8 +419,6 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
                   ? null
                   : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: _submitting
@@ -371,7 +432,8 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
                     )
                   : const Text('Bildir'),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

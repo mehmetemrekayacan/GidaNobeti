@@ -133,6 +133,18 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
     );
   }
 
+  void _showUploadErrorMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+  }
+
   // ── Yükleme ────────────────────────────────────────────────────────────────
 
   Future<void> _uploadImages() async {
@@ -154,12 +166,25 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
         });
         _checkAndShowRiskWarning(res);
       }
-    } catch (e) {
+    } on OrderUploadException catch (e) {
+      final message = e.message.isNotEmpty
+          ? e.message
+          : 'Sipariş yüklenirken bir hata oluştu';
       if (mounted) {
         setState(() {
           _uploading = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = message;
         });
+        _showUploadErrorMessage(message);
+      }
+    } catch (e) {
+      final fallback = e.toString().replaceFirst('Exception: ', '');
+      if (mounted) {
+        setState(() {
+          _uploading = false;
+          _error = fallback;
+        });
+        _showUploadErrorMessage(fallback);
       }
     }
   }

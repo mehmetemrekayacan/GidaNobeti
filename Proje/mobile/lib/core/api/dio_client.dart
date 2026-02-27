@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' show Platform;
+import '../config/app_config.dart';
 import 'interceptors/auth_interceptor.dart';
 import 'interceptors/logging_interceptor.dart';
 
@@ -9,20 +8,7 @@ class DioClient {
   /// Callback for 401 Unauthorized errors (token expired)
   static void Function()? onUnauthorized;
 
-  // Platform-specific base URL (fiziksel cihaz için: flutter run --dart-define=API_HOST=192.168.1.5)
-  static String get _baseUrl {
-    const host = String.fromEnvironment('API_HOST', defaultValue: '');
-    if (host.isNotEmpty) {
-      return 'http://$host:8000';
-    }
-    if (kIsWeb) {
-      return 'http://localhost:8000';
-    } else if (Platform.isAndroid) {
-      return 'http://10.0.2.2:8000'; // Android Emulator
-    } else {
-      return 'http://localhost:8000'; // iOS Simulator & others
-    }
-  }
+  static String get _baseUrl => AppConfig.apiBaseUrl;
   
   static const Duration _connectTimeout = Duration(seconds: 30);
   static const Duration _receiveTimeout = Duration(seconds: 30);
@@ -194,22 +180,65 @@ class DioClient {
   /// Handle HTTP response errors
   Exception _handleResponseError(Response response) {
     final statusCode = response.statusCode ?? 0;
-    final message = response.data?['detail'] ?? 'Unknown error';
+    final parsedError = _parseErrorPayload(response.data);
+    final message = parsedError.message;
+    final errorCode = parsedError.errorCode;
 
     // Handle 401 Unauthorized - trigger logout callback
     if (statusCode == 401) {
       onUnauthorized?.call();
-      return ClientException(message, statusCode);
+      return ClientException(message, statusCode, errorCode: errorCode);
     }
 
     if (statusCode >= 400 && statusCode < 500) {
-      return ClientException(message, statusCode);
+      return ClientException(message, statusCode, errorCode: errorCode);
     } else if (statusCode >= 500) {
-      return ServerException(message, statusCode);
+      return ServerException(message, statusCode, errorCode: errorCode);
     }
 
     return UnknownException(message);
   }
+
+  _ParsedApiError _parseErrorPayload(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      final detail = data['detail'];
+      if (detail is Map<String, dynamic>) {
+        final nestedDetail = detail['detail'];
+        final nestedCode = detail['error_code'];
+        return _ParsedApiError(
+          message: (nestedDetail is String && nestedDetail.isNotEmpty)
+              ? nestedDetail
+              : 'Unknown error',
+          errorCode: nestedCode is String && nestedCode.isNotEmpty
+              ? nestedCode
+              : null,
+        );
+      }
+
+      final directCode = data['error_code'];
+      return _ParsedApiError(
+        message: (detail is String && detail.isNotEmpty)
+            ? detail
+            : 'Unknown error',
+        errorCode: directCode is String && directCode.isNotEmpty
+            ? directCode
+            : null,
+      );
+    }
+
+    if (data is String && data.isNotEmpty) {
+      return _ParsedApiError(message: data, errorCode: null);
+    }
+
+    return const _ParsedApiError(message: 'Unknown error', errorCode: null);
+  }
+}
+
+class _ParsedApiError {
+  final String message;
+  final String? errorCode;
+
+  const _ParsedApiError({required this.message, this.errorCode});
 }
 
 /// Custom exceptions
@@ -240,19 +269,25 @@ class NetworkException implements Exception {
 class ClientException implements Exception {
   final String message;
   final int statusCode;
-  ClientException(this.message, this.statusCode);
+  final String? errorCode;
+  ClientException(this.message, this.statusCode, {this.errorCode});
 
   @override
-  String toString() => '$message (Status: $statusCode)';
+  String toString() => errorCode == null
+      ? '$message (Status: $statusCode)'
+      : '$message (Code: $errorCode, Status: $statusCode)';
 }
 
 class ServerException implements Exception {
   final String message;
   final int statusCode;
-  ServerException(this.message, this.statusCode);
+  final String? errorCode;
+  ServerException(this.message, this.statusCode, {this.errorCode});
 
   @override
-  String toString() => '$message (Status: $statusCode)';
+  String toString() => errorCode == null
+      ? '$message (Status: $statusCode)'
+      : '$message (Code: $errorCode, Status: $statusCode)';
 }
 
 class UnknownException implements Exception {

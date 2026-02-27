@@ -23,6 +23,8 @@ class Restaurant {
   final String? district;
   final String? platformOrigin;
   final RiskStatus riskStatus;
+  final String? riskReason;
+  final DateTime? riskUpdatedAt;
   final double? avgRating;
   final int totalOrders;
   final bool isActive;
@@ -33,6 +35,8 @@ class Restaurant {
     this.district,
     this.platformOrigin,
     required this.riskStatus,
+    this.riskReason,
+    this.riskUpdatedAt,
     this.avgRating,
     required this.totalOrders,
     required this.isActive,
@@ -46,6 +50,10 @@ class Restaurant {
       district: json['district'] as String?,
       platformOrigin: json['platform_origin'] as String?,
       riskStatus: RiskStatus.fromString(json['current_risk_status'] as String),
+        riskReason: json['risk_reason'] as String?,
+        riskUpdatedAt: json['risk_updated_at'] != null
+          ? DateTime.tryParse(json['risk_updated_at'] as String)
+          : null,
       avgRating: json['avg_rating'] != null 
           ? (json['avg_rating'] as num).toDouble() 
           : null,
@@ -62,6 +70,8 @@ class Restaurant {
       'district': district,
       'platform_origin': platformOrigin,
       'current_risk_status': riskStatus.value,
+      'risk_reason': riskReason,
+      'risk_updated_at': riskUpdatedAt?.toIso8601String(),
       'avg_rating': avgRating,
       'total_orders': totalOrders,
       'is_active': isActive,
@@ -75,6 +85,8 @@ class Restaurant {
     String? district,
     String? platformOrigin,
     RiskStatus? riskStatus,
+    String? riskReason,
+    DateTime? riskUpdatedAt,
     double? avgRating,
     int? totalOrders,
     bool? isActive,
@@ -85,6 +97,8 @@ class Restaurant {
       district: district ?? this.district,
       platformOrigin: platformOrigin ?? this.platformOrigin,
       riskStatus: riskStatus ?? this.riskStatus,
+      riskReason: riskReason ?? this.riskReason,
+      riskUpdatedAt: riskUpdatedAt ?? this.riskUpdatedAt,
       avgRating: avgRating ?? this.avgRating,
       totalOrders: totalOrders ?? this.totalOrders,
       isActive: isActive ?? this.isActive,

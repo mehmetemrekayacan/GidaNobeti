@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/router/app_routes.dart';
 import '../bloc/auth_bloc.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -80,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             } else if (state is AuthAuthenticated) {
               // Navigate to home screen
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                Navigator.pushReplacementNamed(context, '/home');
+                context.goNamed(AppRoutes.homeName);
               });
             }
           },

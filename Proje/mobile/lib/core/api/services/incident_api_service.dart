@@ -12,14 +12,20 @@ class IncidentApiService {
     required String suspectedOrderId,
     required String symptoms,
     required int severityLevel,
+    bool? isVerifiedByDoctor,
   }) async {
+    final payload = <String, dynamic>{
+      'suspected_order_id': suspectedOrderId,
+      'symptoms': symptoms,
+      'severity_level': severityLevel,
+    };
+    if (isVerifiedByDoctor != null) {
+      payload['is_verified_by_doctor'] = isVerifiedByDoctor;
+    }
+
     final response = await _client.post(
       '/v1/incidents/report',
-      data: {
-        'suspected_order_id': suspectedOrderId,
-        'symptoms': symptoms,
-        'severity_level': severityLevel,
-      },
+      data: payload,
     );
     return IncidentReportResponse.fromJson(
         response.data as Map<String, dynamic>);
