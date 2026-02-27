@@ -2,6 +2,8 @@
  * API Client - Axios instance with interceptors
  */
 import axios from 'axios';
+import { removeToken } from './auth';
+import { AUTH_TOKEN_KEY } from './utils/auth-constants';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
@@ -18,7 +20,7 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem(AUTH_TOKEN_KEY);
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -37,7 +39,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Unauthorized - redirect to login
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
+        removeToken();
         window.location.href = '/login';
       }
     }

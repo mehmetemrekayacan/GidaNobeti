@@ -21,10 +21,26 @@ interface Incident {
   updated_at?: string | null;
 }
 
+type UiIncidentStatus = 'PENDING' | 'INVESTIGATING' | 'RESOLVED' | 'REJECTED';
+
+const UI_TO_API_STATUS: Record<UiIncidentStatus, string> = {
+  PENDING: 'PENDING',
+  INVESTIGATING: 'INVESTIGATING',
+  RESOLVED: 'CONFIRMED',
+  REJECTED: 'DISMISSED',
+};
+
+const API_TO_UI_STATUS: Record<string, UiIncidentStatus> = {
+  PENDING: 'PENDING',
+  INVESTIGATING: 'INVESTIGATING',
+  CONFIRMED: 'RESOLVED',
+  DISMISSED: 'REJECTED',
+};
+
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Beklemede',
   INVESTIGATING: 'İnceleniyor',
-  CONFIRMED: 'Onaylandı',
+  CONFIRMED: 'Çözüldü',
   DISMISSED: 'Reddedildi',
 };
 
@@ -78,15 +94,30 @@ export default function IncidentsPage() {
     );
   });
 
-  const handleUpdate = async (incidentId: string, status: string, adminNotes: string) => {
+  const handleUpdate = async (incidentId: string, status: UiIncidentStatus, adminNotes: string) => {
     try {
+      const apiStatus = UI_TO_API_STATUS[status];
       await apiClient.put(`/admin/incidents/${incidentId}`, {
-        status: status || undefined,
+        status: apiStatus || undefined,
         admin_notes: adminNotes || undefined,
       });
+
+      const nowIso = new Date().toISOString();
+      setIncidents((prev) =>
+        prev.map((incident) =>
+          incident.id === incidentId
+            ? {
+                ...incident,
+                status: apiStatus,
+                admin_notes: adminNotes || null,
+                updated_at: nowIso,
+              }
+            : incident
+        )
+      );
+
       setShowModal(false);
       setSelectedIncident(null);
-      fetchIncidents();
       showToast('success', 'Vaka başarıyla güncellendi');
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { detail?: string } }; message?: string };
@@ -272,7 +303,7 @@ export default function IncidentsPage() {
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                           >
                             <Edit2 className="w-4 h-4" />
-                            Düzenle
+                            İncele/Güncelle
                           </button>
                         </td>
                       </tr>
@@ -335,9 +366,11 @@ function IncidentModal({
 }: {
   incident: Incident;
   onClose: () => void;
-  onSave: (id: string, status: string, adminNotes: string) => void;
+  onSave: (id: string, status: UiIncidentStatus, adminNotes: string) => void;
 }) {
-  const [status, setStatus] = useState(incident.status);
+  const [status, setStatus] = useState<UiIncidentStatus>(
+    API_TO_UI_STATUS[incident.status] || 'PENDING'
+  );
   const [adminNotes, setAdminNotes] = useState(incident.admin_notes || '');
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -381,7 +414,7 @@ function IncidentModal({
       >
         {/* Header with X button */}
         <div className="flex items-start justify-between mb-4">
-          <h2 id="modal-title" className="text-xl font-bold text-gray-900">Vaka Detayı</h2>
+          <h2 id="modal-title" className="text-xl font-bold text-gray-900">Vaka İncele / Güncelle</h2>
           <button
             type="button"
             onClick={onClose}
@@ -444,14 +477,14 @@ function IncidentModal({
             <select
               id="incident-status"
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => setStatus(e.target.value as UiIncidentStatus)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 [&>option]:text-gray-900 [&>option]:bg-white"
               aria-label="Vaka durumu"
             >
               <option value="PENDING">Beklemede</option>
               <option value="INVESTIGATING">İnceleniyor</option>
-              <option value="CONFIRMED">Onaylandı</option>
-              <option value="DISMISSED">Reddedildi</option>
+              <option value="RESOLVED">Çözüldü</option>
+              <option value="REJECTED">Reddedildi</option>
             </select>
           </div>
 
