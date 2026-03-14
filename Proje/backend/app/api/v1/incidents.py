@@ -61,6 +61,7 @@ async def report_health_incident(
         suspected_order_id=body.suspected_order_id,
         symptoms=body.symptoms,
         severity_level=body.severity_level,
+        is_verified_by_doctor=bool(body.is_verified_by_doctor),
     )
     db.add(incident)
     await db.flush()

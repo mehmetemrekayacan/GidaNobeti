@@ -7,11 +7,16 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
-class IncidentReportRequest(BaseModel):
-    """Sağlık vakası bildirimi isteği."""
+class IncidentCreate(BaseModel):
+    """Sağlık vakası oluşturma isteği."""
     suspected_order_id: UUID = Field(..., description="Şüpheli sipariş ID")
     symptoms: str = Field(..., min_length=10, max_length=2000, description="Belirtiler")
     severity_level: int = Field(..., ge=1, le=5, description="Ciddiyet (1-5)")
+    is_verified_by_doctor: Optional[bool] = Field(False, description="Doktor tarafından doğrulandı mı")
+
+
+class IncidentReportRequest(IncidentCreate):
+    """Sağlık vakası bildirimi isteği."""
 
 
 class IncidentReportResponse(BaseModel):
