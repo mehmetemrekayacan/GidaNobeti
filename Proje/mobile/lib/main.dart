@@ -5,6 +5,7 @@ import 'core/bloc/app_bloc_observer.dart';
 import 'core/api/dio_client.dart';
 import 'core/api/services/auth_api_service.dart';
 import 'core/router/app_router.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/bloc/auth_bloc.dart';
 
 void main() async {
@@ -42,10 +43,7 @@ class MyApp extends StatelessWidget {
         routerConfig: router,
         title: 'Gıda Nöbeti',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
-          useMaterial3: true,
-        ),
+        theme: AppTheme.light,
       ),
     );
   }
