@@ -110,7 +110,114 @@ class OrderHistoryListResponse {
 }
 
 /// Order upload response
-class OrderUploadResponse {
+class OrderDraftItem {
+  final String itemName;
+  final int quantity;
+  final double? unitPrice;
+
+  OrderDraftItem({
+    required this.itemName,
+    required this.quantity,
+    this.unitPrice,
+  });
+
+  factory OrderDraftItem.fromJson(Map<String, dynamic> json) {
+    return OrderDraftItem(
+      itemName: json['item_name'] as String,
+      quantity: json['quantity'] as int,
+      unitPrice: (json['unit_price'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'item_name': itemName,
+      'quantity': quantity,
+      'unit_price': unitPrice,
+    };
+  }
+}
+
+class OrderParseResponse {
+  final String? restaurantName;
+  final int? restaurantId;
+  final double? totalAmount;
+  final String? foodContent;
+  final String rawOcrText;
+  final double ocrConfidence;
+  final List<String> warnings;
+  final DateTime? receiptDate;
+  final List<OrderDraftItem> items;
+
+  OrderParseResponse({
+    this.restaurantName,
+    this.restaurantId,
+    this.totalAmount,
+    this.foodContent,
+    required this.rawOcrText,
+    required this.ocrConfidence,
+    this.warnings = const [],
+    this.receiptDate,
+    this.items = const [],
+  });
+
+  factory OrderParseResponse.fromJson(Map<String, dynamic> json) {
+    final warningsList = json['warnings'] as List<dynamic>? ?? [];
+    final itemsList = json['items'] as List<dynamic>? ?? [];
+    return OrderParseResponse(
+      restaurantName: json['restaurant_name'] as String?,
+      restaurantId: json['restaurant_id'] as int?,
+      totalAmount: (json['total_amount'] as num?)?.toDouble(),
+      foodContent: json['food_content'] as String?,
+      rawOcrText: json['raw_ocr_text'] as String,
+      ocrConfidence: (json['ocr_confidence'] as num).toDouble(),
+      warnings: warningsList.map((e) => e as String).toList(),
+      receiptDate: json['receipt_date'] != null
+          ? DateTime.tryParse(json['receipt_date'] as String)
+          : null,
+      items: itemsList
+          .map((e) => OrderDraftItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class OrderConfirmRequest {
+  final String restaurantName;
+  final double? totalAmount;
+  final String? foodContent;
+  final String rawOcrText;
+  final double ocrConfidence;
+  final List<String> warnings;
+  final DateTime? receiptDate;
+  final List<OrderDraftItem> items;
+
+  OrderConfirmRequest({
+    required this.restaurantName,
+    this.totalAmount,
+    this.foodContent,
+    required this.rawOcrText,
+    required this.ocrConfidence,
+    this.warnings = const [],
+    this.receiptDate,
+    this.items = const [],
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'restaurant_name': restaurantName,
+      'total_amount': totalAmount,
+      'food_content': foodContent,
+      'raw_ocr_text': rawOcrText,
+      'ocr_confidence': ocrConfidence,
+      'warnings': warnings,
+      'receipt_date': receiptDate?.toIso8601String(),
+      'items': items.map((item) => item.toJson()).toList(),
+    };
+  }
+}
+
+class OrderConfirmResponse {
   final String orderId;
   final String? restaurantName;
   final int? restaurantId;
@@ -120,8 +227,9 @@ class OrderUploadResponse {
   final double ocrConfidence;
   final List<String> warnings;
   final DateTime? receiptDate;
+  final List<OrderDraftItem> items;
 
-  OrderUploadResponse({
+  OrderConfirmResponse({
     required this.orderId,
     this.restaurantName,
     this.restaurantId,
@@ -131,11 +239,13 @@ class OrderUploadResponse {
     required this.ocrConfidence,
     this.warnings = const [],
     this.receiptDate,
+    this.items = const [],
   });
 
-  factory OrderUploadResponse.fromJson(Map<String, dynamic> json) {
+  factory OrderConfirmResponse.fromJson(Map<String, dynamic> json) {
     final warningsList = json['warnings'] as List<dynamic>? ?? [];
-    return OrderUploadResponse(
+    final itemsList = json['items'] as List<dynamic>? ?? [];
+    return OrderConfirmResponse(
       orderId: json['order_id'] as String,
       restaurantName: json['restaurant_name'] as String?,
       restaurantId: json['restaurant_id'] as int?,
@@ -147,6 +257,9 @@ class OrderUploadResponse {
       receiptDate: json['receipt_date'] != null
           ? DateTime.tryParse(json['receipt_date'] as String)
           : null,
+      items: itemsList
+          .map((e) => OrderDraftItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

@@ -9,8 +9,11 @@ from uuid import uuid4
 from app.schemas.order import (
     AdminOrderListItem,
     AdminOrderListResponse,
+    OrderConfirmRequest,
+    OrderParseResponse,
     OrderHistoryItemSchema,
     OrderHistoryEntrySchema,
+    ParsedOrderItemSchema,
 )
 from app.schemas.incident import AdminIncidentUpdateRequest
 
@@ -82,6 +85,57 @@ class TestOrderHistoryItemSchema:
         assert item.item_name == "Pizza"
         assert item.quantity == 2
         assert item.unit_price == 45.00
+
+
+class TestOrderParseResponse:
+    """OrderParseResponse schema testleri."""
+
+    def test_valid_parse_response(self):
+        """Parse response editable OCR sonucunu taşır."""
+        response = OrderParseResponse(
+            restaurant_name="Pasaport Pizza",
+            restaurant_id=12,
+            total_amount=125.75,
+            food_content="1x Orta Boy Pizza",
+            raw_ocr_text="RAW OCR",
+            ocr_confidence=92.5,
+            warnings=["Dikkat: riskli restoran"],
+            receipt_date=datetime.now(),
+            items=[
+                ParsedOrderItemSchema(
+                    item_name="Orta Boy Pizza",
+                    quantity=1,
+                    unit_price=125.75,
+                )
+            ],
+        )
+        assert response.restaurant_name == "Pasaport Pizza"
+        assert response.restaurant_id == 12
+        assert len(response.items) == 1
+
+
+class TestOrderConfirmRequest:
+    """OrderConfirmRequest schema testleri."""
+
+    def test_valid_confirm_request(self):
+        """Onay request'i düzenlenmiş veriyi kabul eder."""
+        request = OrderConfirmRequest(
+            restaurant_name="Pasaport Pizza",
+            total_amount=125.75,
+            food_content="1x Orta Boy Pizza",
+            raw_ocr_text="RAW OCR",
+            ocr_confidence=88.0,
+            items=[
+                ParsedOrderItemSchema(
+                    item_name="Orta Boy Pizza",
+                    quantity=1,
+                    unit_price=125.75,
+                )
+            ],
+        )
+        assert request.restaurant_name == "Pasaport Pizza"
+        assert request.ocr_confidence == 88.0
+        assert request.items[0].item_name == "Orta Boy Pizza"
 
 
 class TestAdminIncidentUpdateRequest:

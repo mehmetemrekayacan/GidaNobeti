@@ -60,3 +60,6 @@ Kontrol: http://localhost:3000
 |--------|--------------|----------|
 | Öğrenci| `12345678901`| `Test123!` |
 | Admin  | '11111111111' |'Admin123!' |
+
+
+adb reverse tcp:8000 tcp:8000

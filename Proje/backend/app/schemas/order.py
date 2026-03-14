@@ -71,7 +71,36 @@ class AdminOrderListResponse(BaseModel):
     items: list[AdminOrderListItem]
 
 
-class OrderUploadResponse(BaseModel):
+class ParsedOrderItemSchema(BaseModel):
+    item_name: str
+    quantity: int = Field(default=1, ge=1)
+    unit_price: float | None = None
+
+
+class OrderParseResponse(BaseModel):
+    restaurant_name: str | None
+    restaurant_id: int | None
+    total_amount: float | None
+    food_content: str | None = None
+    raw_ocr_text: str
+    ocr_confidence: float
+    warnings: list[str] = Field(default_factory=list)
+    receipt_date: datetime | None
+    items: list[ParsedOrderItemSchema] = Field(default_factory=list)
+
+
+class OrderConfirmRequest(BaseModel):
+    restaurant_name: str = Field(min_length=1, max_length=255)
+    total_amount: float | None = None
+    food_content: str | None = None
+    raw_ocr_text: str = Field(min_length=1)
+    ocr_confidence: float = Field(ge=0, le=100)
+    warnings: list[str] = Field(default_factory=list)
+    receipt_date: datetime | None = None
+    items: list[ParsedOrderItemSchema] = Field(default_factory=list)
+
+
+class OrderConfirmResponse(BaseModel):
     order_id: UUID
     restaurant_name: str | None
     restaurant_id: int | None
@@ -81,3 +110,4 @@ class OrderUploadResponse(BaseModel):
     ocr_confidence: float
     warnings: list[str] = Field(default_factory=list)
     receipt_date: datetime | None
+    items: list[ParsedOrderItemSchema] = Field(default_factory=list)

@@ -2,17 +2,17 @@ import 'package:dio/dio.dart';
 import '../dio_client.dart';
 import '../models/order_models.dart';
 
-class OrderUploadException implements Exception {
+class OrderApiException implements Exception {
   final String message;
   final String? errorCode;
 
-  const OrderUploadException({required this.message, this.errorCode});
+  const OrderApiException({required this.message, this.errorCode});
 
   @override
   String toString() => message;
 }
 
-/// Order API Service - upload receipt & order history
+/// Order API Service - parse/confirm receipt flow & order history
 class OrderApiService {
   final DioClient _client;
 
@@ -42,43 +42,67 @@ class OrderApiService {
         response.data as Map<String, dynamic>);
   }
 
-  /// POST /v1/orders/upload - upload single receipt image (backward compat)
-  Future<OrderUploadResponse> uploadReceipt(String filePath) async {
-    return uploadReceipts([filePath]);
+  /// POST /v1/orders/parse - parse single receipt image (backward compat)
+  Future<OrderParseResponse> parseReceipt(String filePath) async {
+    return parseReceipts([filePath]);
   }
 
-  /// POST /v1/orders/upload - upload one or more receipt images
-  /// Trendyol gibi uzun fişler için max 2 görsel destekler.
-  Future<OrderUploadResponse> uploadReceipts(List<String> filePaths) async {
+  /// POST /v1/orders/parse - parse one or more receipt images.
+  Future<OrderParseResponse> parseReceipts(List<String> filePaths) async {
     try {
       final response = await _client.postMultipartMultiple(
-        '/v1/orders/upload',
+        '/v1/orders/parse',
         filePaths: filePaths,
         fieldName: 'files',
       );
-      return OrderUploadResponse.fromJson(
+      return OrderParseResponse.fromJson(
           response.data as Map<String, dynamic>);
     } on ClientException catch (e) {
       const readableCodes = {
         'OCR_UNREADABLE',
         'PARSER_RESTAURANT_NOT_FOUND',
+        'PARSER_UNREADABLE',
       };
 
       if (e.statusCode == 400 && readableCodes.contains(e.errorCode)) {
-        throw const OrderUploadException(
+        throw const OrderApiException(
           message:
               'Fiş okunamadı veya restoran tespit edilemedi, lütfen daha net bir fotoğraf çekin',
           errorCode: 'OCR_OR_PARSER_UNREADABLE',
         );
       }
 
-      throw OrderUploadException(
+      throw OrderApiException(
         message: e.message,
         errorCode: e.errorCode,
       );
     } on DioException catch (e) {
-      throw OrderUploadException(
-        message: e.message ?? 'Sipariş yükleme sırasında bir hata oluştu',
+      throw OrderApiException(
+        message: e.message ?? 'Fiş ayrıştırma sırasında bir hata oluştu',
+      );
+    }
+  }
+
+  /// POST /v1/orders/confirm - save user-confirmed order.
+  Future<OrderConfirmResponse> confirmParsedOrder(
+    OrderConfirmRequest request,
+  ) async {
+    try {
+      final response = await _client.post(
+        '/v1/orders/confirm',
+        data: request.toJson(),
+      );
+      return OrderConfirmResponse.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+    } on ClientException catch (e) {
+      throw OrderApiException(
+        message: e.message,
+        errorCode: e.errorCode,
+      );
+    } on DioException catch (e) {
+      throw OrderApiException(
+        message: e.message ?? 'Sipariş kaydedilirken bir hata oluştu',
       );
     }
   }

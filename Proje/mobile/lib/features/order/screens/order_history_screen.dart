@@ -1,24 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+
 import '../../../core/api/models/order_models.dart';
-import '../../../core/api/services/order_api_service.dart';
+import '../bloc/order_bloc.dart';
+import '../bloc/order_event.dart';
+import '../bloc/order_state.dart';
 
 /// Order history (sipariş geçmişi) - GET /v1/orders/my-history
 /// TASK-MB-013: Liste, pagination, pull-to-refresh, empty state, date filter
-class OrderHistoryScreen extends StatefulWidget {
+class OrderHistoryScreen extends StatelessWidget {
   const OrderHistoryScreen({super.key});
 
   @override
-  State<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => OrderBloc(),
+      child: const _OrderHistoryView(),
+    );
+  }
 }
 
-class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  final OrderApiService _api = OrderApiService();
-  int _page = 1;
-  final List<OrderHistoryEntry> _items = [];
-  bool _loading = false;
-  bool _hasMore = true;
-  String? _error;
+class _OrderHistoryView extends StatefulWidget {
+  const _OrderHistoryView();
+
+  @override
+  State<_OrderHistoryView> createState() => _OrderHistoryViewState();
+}
+
+class _OrderHistoryViewState extends State<_OrderHistoryView> {
 
   /// 0: Tümü, 1: Son 7 gün, 2: Son 30 gün
   int _dateFilterIndex = 0;
@@ -33,54 +43,34 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMore();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load(refresh: true);
+    });
   }
 
-  Future<void> _loadMore() async {
-    if (_loading || !_hasMore) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final res = await _api.getMyHistory(
-        page: _page,
+  void _load({required bool refresh, int? page}) {
+    final bloc = context.read<OrderBloc>();
+    final nextPage = page ?? (refresh ? 1 : bloc.state.page + 1);
+    bloc.add(
+      OrderHistoryRequested(
+        page: nextPage,
         limit: 20,
         startDate: _startDate,
-      );
-      setState(() {
-        _items.addAll(res.items);
-        _hasMore =
-            res.items.length >= res.limit && _items.length < res.total;
-        _page++;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
+        refresh: refresh,
+      ),
+    );
   }
 
   Future<void> _refresh() async {
-    setState(() {
-      _page = 1;
-      _items.clear();
-      _hasMore = true;
-    });
-    await _loadMore();
+    _load(refresh: true);
   }
 
   void _setDateFilter(int index) {
     if (_dateFilterIndex == index) return;
     setState(() {
       _dateFilterIndex = index;
-      _page = 1;
-      _items.clear();
-      _hasMore = true;
     });
-    _loadMore();
+    _load(refresh: true, page: 1);
   }
 
   @override
@@ -96,13 +86,23 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         children: [
           _buildDateFilterChips(),
           Expanded(
-            child: _error != null
-                ? _buildErrorState()
-                : _items.isEmpty && _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _items.isEmpty
-                        ? _buildEmptyState()
-                        : _buildList(),
+            child: BlocBuilder<OrderBloc, OrderState>(
+              builder: (context, state) {
+                if (state.historyError != null && state.historyItems.isEmpty) {
+                  return _buildErrorState(state.historyError!);
+                }
+
+                if (state.isHistoryLoading && state.historyItems.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (state.historyItems.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return _buildList(state);
+              },
+            ),
           ),
         ],
       ),
@@ -132,7 +132,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     );
   }
 
-  Widget _buildErrorState() {
+  Widget _buildErrorState(String errorMessage) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -142,21 +142,13 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             Icon(Icons.error_outline, size: 48, color: Colors.red[700]),
             const SizedBox(height: 16),
             Text(
-              _error!,
+              errorMessage,
               style: TextStyle(color: Colors.red[700], fontSize: 14),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: () {
-                setState(() {
-                  _error = null;
-                  _page = 1;
-                  _items.clear();
-                  _hasMore = true;
-                });
-                _loadMore();
-              },
+              onPressed: () => _load(refresh: true, page: 1),
               icon: const Icon(Icons.refresh),
               label: const Text('Tekrar dene'),
             ),
@@ -196,21 +188,23 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     );
   }
 
-  Widget _buildList() {
+  Widget _buildList(OrderState state) {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        itemCount: _items.length + (_hasMore ? 1 : 0),
+        itemCount: state.historyItems.length + (state.hasMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == _items.length) {
-            if (_hasMore && !_loading) _loadMore();
+          if (index == state.historyItems.length) {
+            if (state.hasMore && !state.isHistoryLoading) {
+              _load(refresh: false);
+            }
             return const Padding(
               padding: EdgeInsets.all(16.0),
               child: Center(child: CircularProgressIndicator()),
             );
           }
-          return _OrderHistoryCard(order: _items[index]);
+          return _OrderHistoryCard(order: state.historyItems[index]);
         },
       ),
     );

@@ -1,535 +1,704 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../core/api/services/order_api_service.dart';
+
 import '../../../core/api/models/order_models.dart';
+import '../../../core/router/app_routes.dart';
+import '../bloc/order_bloc.dart';
+import '../bloc/order_event.dart';
+import '../bloc/order_state.dart';
 import '../widgets/risk_warning_dialog.dart';
 
-/// Order upload - fiş fotoğrafı yükle (POST /v1/orders/upload)
-/// Tek veya çoklu (max 2) görsel destekler (Trendyol gibi uzun fişler için).
-class OrderUploadScreen extends StatefulWidget {
+class OrderUploadScreen extends StatelessWidget {
   const OrderUploadScreen({super.key});
 
   @override
-  State<OrderUploadScreen> createState() => _OrderUploadScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => OrderBloc(),
+      child: const _OrderUploadView(),
+    );
+  }
 }
 
-class _OrderUploadScreenState extends State<OrderUploadScreen> {
-  final OrderApiService _api = OrderApiService();
-  final ImagePicker _picker = ImagePicker();
+class _OrderUploadView extends StatefulWidget {
+  const _OrderUploadView();
 
-  /// Seçilen görsellerin yol listesi (max 2)
+  @override
+  State<_OrderUploadView> createState() => _OrderUploadViewState();
+}
+
+class _OrderUploadViewState extends State<_OrderUploadView> {
+  final ImagePicker _picker = ImagePicker();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _restaurantController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _foodContentController = TextEditingController();
+
   final List<String> _selectedImages = [];
   static const int _maxImages = 2;
 
-  bool _uploading = false;
-  String? _error;
-  OrderUploadResponse? _result;
-
-  /// Başarılı yükleme sonrası success ekranı gösterilir
-  bool _showSuccess = false;
-
-  // ── Görsel Ekleme ──────────────────────────────────────────────────────────
+  @override
+  void dispose() {
+    _restaurantController.dispose();
+    _amountController.dispose();
+    _foodContentController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickFromCamera() async {
     if (_selectedImages.length >= _maxImages) {
-      _showMaxImagesWarning();
+      _showMessage('En fazla $_maxImages görsel seçebilirsiniz.');
       return;
     }
+
     try {
-      final XFile? file = await _picker.pickImage(
+      final file = await _picker.pickImage(
         source: ImageSource.camera,
         maxWidth: 1280,
         imageQuality: 80,
       );
-      if (file == null) return;
-      final path = file.path;
-      if (path.isEmpty) {
-        setState(() => _error = 'Dosya yolu alınamadı');
-        return;
-      }
+      if (file == null || file.path.isEmpty) return;
+
       setState(() {
-        _selectedImages.add(path);
-        _error = null;
-        _result = null;
+        _selectedImages.add(file.path);
       });
-    } catch (e) {
-      if (mounted) {
-        setState(
-            () => _error = e.toString().replaceFirst('Exception: ', ''));
-      }
+      _resetDraftState();
+    } catch (error) {
+      _showMessage(error.toString().replaceFirst('Exception: ', ''));
     }
   }
 
   Future<void> _pickFromGallery() async {
     if (_selectedImages.length >= _maxImages) {
-      _showMaxImagesWarning();
+      _showMessage('En fazla $_maxImages görsel seçebilirsiniz.');
       return;
     }
+
     try {
       final remaining = _maxImages - _selectedImages.length;
       if (remaining > 1) {
-        // Çoklu seçim
-        final List<XFile> files = await _picker.pickMultiImage(
+        final files = await _picker.pickMultiImage(
           maxWidth: 1280,
           imageQuality: 80,
         );
         if (files.isEmpty) return;
-        final toAdd = files
+
+        final filePaths = files
             .take(remaining)
-            .map((f) => f.path)
-            .where((p) => p.isNotEmpty)
+            .map((file) => file.path)
+            .where((path) => path.isNotEmpty)
             .toList();
-        if (toAdd.isEmpty) {
-          setState(() => _error = 'Dosya yolu alınamadı');
-          return;
-        }
+
+        if (filePaths.isEmpty) return;
+
         setState(() {
-          _selectedImages.addAll(toAdd);
-          _error = null;
-          _result = null;
+          _selectedImages.addAll(filePaths);
         });
       } else {
-        // Tek görsel kaldı
-        final XFile? file = await _picker.pickImage(
+        final file = await _picker.pickImage(
           source: ImageSource.gallery,
           maxWidth: 1280,
           imageQuality: 80,
         );
-        if (file == null) return;
-        final path = file.path;
-        if (path.isEmpty) {
-          setState(() => _error = 'Dosya yolu alınamadı');
-          return;
-        }
+        if (file == null || file.path.isEmpty) return;
+
         setState(() {
-          _selectedImages.add(path);
-          _error = null;
-          _result = null;
+          _selectedImages.add(file.path);
         });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(
-            () => _error = e.toString().replaceFirst('Exception: ', ''));
-      }
+
+      _resetDraftState();
+    } catch (error) {
+      _showMessage(error.toString().replaceFirst('Exception: ', ''));
     }
   }
 
   void _removeImage(int index) {
     setState(() {
       _selectedImages.removeAt(index);
-      _result = null;
-      _error = null;
     });
+    _resetDraftState();
   }
 
-  void _showMaxImagesWarning() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('En fazla $_maxImages görsel seçebilirsiniz.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  void _resetDraftState() {
+    _restaurantController.clear();
+    _amountController.clear();
+    _foodContentController.clear();
+    context.read<OrderBloc>().add(const OrderFlowResetRequested());
   }
 
-  void _showUploadErrorMessage(String message) {
+  void _syncDraft(OrderParseResponse response) {
+    _restaurantController.text = response.restaurantName ?? '';
+    _amountController.text = response.totalAmount != null
+        ? response.totalAmount!.toStringAsFixed(2)
+        : '';
+    _foodContentController.text = response.foodContent ?? '';
+  }
+
+  void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 4),
-        ),
+        SnackBar(content: Text(message)),
       );
   }
 
-  // ── Yükleme ────────────────────────────────────────────────────────────────
+  void _parseReceipts() {
+    if (_selectedImages.isEmpty) {
+      _showMessage('Önce en az bir görsel seçin.');
+      return;
+    }
 
-  Future<void> _uploadImages() async {
-    if (_selectedImages.isEmpty) return;
+    context.read<OrderBloc>().add(
+          OrderReceiptParseRequested(filePaths: List<String>.from(_selectedImages)),
+        );
+  }
 
-    setState(() {
-      _uploading = true;
-      _error = null;
-      _result = null;
+  void _confirmOrder(OrderParseResponse parsedOrder) {
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) return;
+
+    final amountText = _amountController.text.trim();
+    final normalizedAmount = amountText.replaceAll(',', '.');
+    final totalAmount = normalizedAmount.isEmpty
+        ? null
+        : double.tryParse(normalizedAmount);
+
+    if (amountText.isNotEmpty && totalAmount == null) {
+      _showMessage('Tutar alanı geçerli bir sayı olmalı.');
+      return;
+    }
+
+    final request = OrderConfirmRequest(
+      restaurantName: _restaurantController.text.trim(),
+      totalAmount: totalAmount,
+      foodContent: _foodContentController.text.trim().isEmpty
+          ? null
+          : _foodContentController.text.trim(),
+      rawOcrText: parsedOrder.rawOcrText,
+      ocrConfidence: parsedOrder.ocrConfidence,
+      warnings: parsedOrder.warnings,
+      receiptDate: parsedOrder.receiptDate,
+      items: parsedOrder.items,
+    );
+
+    context
+        .read<OrderBloc>()
+        .add(OrderConfirmationRequested(request: request));
+  }
+
+  void _showRiskWarning(OrderParseResponse response) {
+    final riskWarning = response.warnings.where((warning) {
+      return warning.contains('riskli restoran') || warning.contains('Dikkat');
+    }).cast<String?>().firstWhere(
+          (warning) => warning != null && warning.isNotEmpty,
+          orElse: () => null,
+        );
+
+    if (riskWarning == null) return;
+
+    var restaurantName = response.restaurantName ?? 'Bilinmeyen Restoran';
+    final match = RegExp(r'Dikkat:\s*(.+?)\s*riskli').firstMatch(riskWarning);
+    if (match != null && match.group(1) != null) {
+      restaurantName = match.group(1)!.trim();
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      RiskWarningDialog.show(
+        context,
+        restaurantName: restaurantName,
+        riskReason: riskWarning,
+      );
     });
-
-    try {
-      final res = await _api.uploadReceipts(_selectedImages);
-      if (mounted) {
-        setState(() {
-          _uploading = false;
-          _result = res;
-          _showSuccess = true;
-        });
-        _checkAndShowRiskWarning(res);
-      }
-    } on OrderUploadException catch (e) {
-      final message = e.message.isNotEmpty
-          ? e.message
-          : 'Sipariş yüklenirken bir hata oluştu';
-      if (mounted) {
-        setState(() {
-          _uploading = false;
-          _error = message;
-        });
-        _showUploadErrorMessage(message);
-      }
-    } catch (e) {
-      final fallback = e.toString().replaceFirst('Exception: ', '');
-      if (mounted) {
-        setState(() {
-          _uploading = false;
-          _error = fallback;
-        });
-        _showUploadErrorMessage(fallback);
-      }
-    }
   }
 
-  void _checkAndShowRiskWarning(OrderUploadResponse response) {
-    if (response.warnings.isEmpty) return;
-
-    String? riskWarning;
-    for (final w in response.warnings) {
-      if (w.contains('riskli restoran') || w.contains('Dikkat')) {
-        riskWarning = w;
-        break;
-      }
-    }
-
-    if (riskWarning != null && riskWarning.isNotEmpty) {
-      String restaurantName = response.restaurantName ?? 'Bilinmeyen Restoran';
-      final match =
-          RegExp(r'Dikkat:\s*(.+?)\s*riskli').firstMatch(riskWarning);
-      if (match != null && match.group(1) != null) {
-        restaurantName = match.group(1)!.trim();
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          try {
-            RiskWarningDialog.show(
-              context,
-              restaurantName: restaurantName,
-              riskReason: riskWarning,
-            );
-          } catch (e) {
-            debugPrint('RiskWarningDialog gösterilirken hata: $e');
-          }
-        }
-      });
-    }
-  }
-
-  /// State'i sıfırla — yeni sipariş yükleme moduna döner
-  void _resetForNewUpload() {
+  void _startNewFlow() {
     setState(() {
       _selectedImages.clear();
-      _uploading = false;
-      _error = null;
-      _result = null;
-      _showSuccess = false;
     });
+    _resetDraftState();
   }
-
-  // ── UI ──────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sipariş Yükle'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: _showSuccess && _result != null
-            ? _buildSuccessView()
-            : _buildUploadView(),
+    return BlocConsumer<OrderBloc, OrderState>(
+      listenWhen: (previous, current) {
+        return previous.status != current.status ||
+            previous.parsedOrder != current.parsedOrder ||
+            previous.errorMessage != current.errorMessage;
+      },
+      listener: (context, state) {
+        if (state.status == OrderStatus.ocrSuccess && state.parsedOrder != null) {
+          _syncDraft(state.parsedOrder!);
+          _showRiskWarning(state.parsedOrder!);
+        }
+
+        if (state.status == OrderStatus.error && state.errorMessage != null) {
+          _showMessage(state.errorMessage!);
+        }
+
+        if (state.status == OrderStatus.confirmed && state.confirmedOrder != null) {
+          _showMessage('Sipariş başarıyla kaydedildi.');
+        }
+      },
+      builder: (context, state) {
+        final isUploading = state.status == OrderStatus.uploading;
+        final isConfirming = isUploading && state.parsedOrder != null;
+        final isParsing = isUploading && state.parsedOrder == null;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Fiş Okut'),
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: state.confirmedOrder != null
+                ? _buildSuccessView(state.confirmedOrder!)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildIntroCard(),
+                      const SizedBox(height: 16),
+                      if (_selectedImages.isNotEmpty) ...[
+                        _buildThumbnailRow(),
+                        const SizedBox(height: 16),
+                      ],
+                      if (!isUploading) ...[
+                        if (_selectedImages.length < _maxImages) ...[
+                          OutlinedButton.icon(
+                            onPressed: _pickFromCamera,
+                            icon: const Icon(Icons.camera_alt),
+                            label: const Text('Kamera ile çek'),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: _pickFromGallery,
+                            icon: const Icon(Icons.photo_library_outlined),
+                            label: Text(
+                              _selectedImages.isEmpty
+                                  ? 'Galeriden seç'
+                                  : 'Galeriden ekle',
+                            ),
+                          ),
+                        ],
+                        if (_selectedImages.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          FilledButton.icon(
+                            onPressed: _parseReceipts,
+                            icon: const Icon(Icons.document_scanner_outlined),
+                            label: Text(
+                              _selectedImages.length == 1
+                                  ? 'OCR Sonucunu Hazırla'
+                                  : 'OCR Sonucunu Hazırla (${_selectedImages.length} görsel)',
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                          ),
+                        ],
+                      ],
+                      if (isParsing) ...[
+                        const SizedBox(height: 20),
+                        const _LoadingCard(
+                          title: 'OCR sonucu hazırlanıyor',
+                          subtitle: 'Fiş okunuyor ve düzenlenebilir taslak oluşturuluyor...',
+                        ),
+                      ],
+                      if (state.parsedOrder != null) ...[
+                        const SizedBox(height: 20),
+                        _buildConfirmationForm(
+                          state.parsedOrder!,
+                          isConfirming: isConfirming,
+                          errorMessage: state.status == OrderStatus.error
+                              ? state.errorMessage
+                              : null,
+                        ),
+                      ],
+                    ],
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildIntroCard() {
+    return Card(
+      color: Colors.orange.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.receipt_long, color: Colors.orange.shade800),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Fiş taslağı oluştur',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Fiş veya ekran görüntüsü yükleyin. Sistem OCR ile verileri çıkarır, ancak sipariş siz onaylamadan kaydedilmez.',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Uzun fişler için en fazla $_maxImages görsel seçebilirsiniz.',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Başarılı yükleme sonrası gösterilen ekran
-  Widget _buildSuccessView() {
-    final result = _result!;
+  Widget _buildConfirmationForm(
+    OrderParseResponse parsedOrder, {
+    required bool isConfirming,
+    required String? errorMessage,
+  }) {
+    final receiptDateText = parsedOrder.receiptDate != null
+        ? parsedOrder.receiptDate!.toLocal().toString().substring(0, 16)
+        : 'Tespit edilemedi';
+
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(color: Colors.orange.shade100),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.fact_check_outlined,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'OCR sonucu onay bekliyor',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Aşağıdaki alanları kontrol edin. Bu adım tamamlanmadan sipariş veritabanına kaydedilmez.',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 18),
+                  TextFormField(
+                    controller: _restaurantController,
+                    decoration: const InputDecoration(
+                      labelText: 'Restoran adı',
+                      prefixIcon: Icon(Icons.storefront_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Restoran adı zorunlu.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Toplam tutar',
+                      hintText: 'Örn: 245.90',
+                      prefixIcon: Icon(Icons.payments_outlined),
+                      suffixText: 'TL',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return null;
+                      }
+
+                      final normalized = value.trim().replaceAll(',', '.');
+                      return double.tryParse(normalized) == null
+                          ? 'Geçerli bir tutar girin.'
+                          : null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _foodContentController,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Yemek içeriği',
+                      prefixIcon: Icon(Icons.fastfood_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _InfoChip(
+                        icon: Icons.auto_awesome,
+                        label:
+                            'OCR güveni %${parsedOrder.ocrConfidence.toStringAsFixed(1)}',
+                      ),
+                      _InfoChip(
+                        icon: Icons.event_outlined,
+                        label: 'Fiş tarihi: $receiptDateText',
+                      ),
+                      if (parsedOrder.restaurantId != null)
+                        _InfoChip(
+                          icon: Icons.verified_outlined,
+                          label: 'Mevcut restoran eşleşti',
+                        ),
+                    ],
+                  ),
+                  if (parsedOrder.warnings.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    ...parsedOrder.warnings.map(
+                      (warning) => Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              size: 18,
+                              color: Colors.orange.shade900,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(warning)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (parsedOrder.items.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Algılanan kalemler',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    ...parsedOrder.items.map(
+                      (item) => ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          radius: 14,
+                          backgroundColor: Colors.orange.shade100,
+                          child: Text(
+                            '${item.quantity}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.orange.shade900,
+                            ),
+                          ),
+                        ),
+                        title: Text(item.itemName),
+                        trailing: item.unitPrice != null
+                            ? Text('${item.unitPrice!.toStringAsFixed(2)} TL')
+                            : null,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Ham OCR metni',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 8),
+                        SelectableText(
+                          parsedOrder.rawOcrText,
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (errorMessage != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.red.shade100),
+              ),
+              child: Text(
+                errorMessage,
+                style: TextStyle(color: Colors.red.shade700),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: isConfirming ? null : () => _confirmOrder(parsedOrder),
+            icon: isConfirming
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: Text(
+              isConfirming
+                  ? 'Kaydediliyor...'
+                  : 'Bilgileri Onayla ve Kaydet',
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuccessView(OrderConfirmResponse response) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 32),
-
-        // ── Başarılı İkonu ───────────────────────────────────────────────
+        const SizedBox(height: 24),
         Icon(
           Icons.check_circle,
           color: Colors.green.shade600,
-          size: 80,
+          size: 82,
         ),
         const SizedBox(height: 16),
         Text(
-          'Başarılı!',
+          'Sipariş kaydedildi',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
             color: Colors.green.shade700,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Siparişiniz başarıyla kaydedildi.',
+          'OCR taslağını onayladıktan sonra sipariş başarıyla veritabanına yazıldı.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+          style: TextStyle(color: Colors.grey.shade700),
         ),
-        const SizedBox(height: 32),
-
-        // ── Sipariş Özet Kartı ───────────────────────────────────────────
+        const SizedBox(height: 24),
         Card(
-          elevation: 3,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Başlık
-                Row(
-                  children: [
-                    Icon(Icons.receipt_long,
-                        color: Colors.orange.shade700, size: 22),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Sipariş Özeti',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade800,
-                      ),
-                    ),
-                  ],
+                _SummaryRow(
+                  icon: Icons.tag,
+                  label: 'Sipariş ID',
+                  value: response.orderId,
                 ),
-                const Divider(height: 24),
-
-                // Restoran Adı
-                if (result.restaurantName != null &&
-                    result.restaurantName!.isNotEmpty)
-                  _buildSummaryRow(
-                    Icons.restaurant,
-                    'Restoran',
-                    result.restaurantName!,
+                if (response.restaurantName != null)
+                  _SummaryRow(
+                    icon: Icons.storefront_outlined,
+                    label: 'Restoran',
+                    value: response.restaurantName!,
                   ),
-
-                // Tutar
-                if (result.totalAmount != null)
-                  _buildSummaryRow(
-                    Icons.payments_outlined,
-                    'Tutar',
-                    '${result.totalAmount!.toStringAsFixed(2)} ₺',
+                if (response.totalAmount != null)
+                  _SummaryRow(
+                    icon: Icons.payments_outlined,
+                    label: 'Tutar',
+                    value: '${response.totalAmount!.toStringAsFixed(2)} TL',
                   ),
-
-                // Yemek İçeriği
-                if (result.foodContent != null &&
-                    result.foodContent!.isNotEmpty)
-                  _buildSummaryRow(
-                    Icons.fastfood_outlined,
-                    'İçerik',
-                    result.foodContent!,
+                if (response.foodContent != null && response.foodContent!.isNotEmpty)
+                  _SummaryRow(
+                    icon: Icons.fastfood_outlined,
+                    label: 'İçerik',
+                    value: response.foodContent!,
                   ),
               ],
             ),
           ),
         ),
-
-        // ── Uyarılar ─────────────────────────────────────────────────────
-        if (result.warnings.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Card(
-            color: Colors.orange.shade50,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: result.warnings
-                    .map((w) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(Icons.warning_amber,
-                                  size: 18,
-                                  color: Colors.orange.shade800),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(w,
-                                    style: TextStyle(
-                                        color: Colors.orange.shade900)),
-                              ),
-                            ],
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
-          ),
-        ],
-
-        const SizedBox(height: 32),
-
-        // ── Yeni Sipariş Yükle Butonu ────────────────────────────────────
-        ElevatedButton.icon(
-          onPressed: _resetForNewUpload,
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: _startNewFlow,
           icon: const Icon(Icons.add_photo_alternate_outlined),
-          label: const Text('Yeni Sipariş Yükle'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+          label: const Text('Yeni fiş okut'),
+        ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: () => context.pushNamed(AppRoutes.orderHistoryName),
+          icon: const Icon(Icons.history),
+          label: const Text('Sipariş geçmişine git'),
+          style: FilledButton.styleFrom(
             backgroundColor: Colors.orange,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            textStyle: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600),
+            padding: const EdgeInsets.symmetric(vertical: 16),
           ),
         ),
       ],
     );
   }
 
-  /// Özet kartındaki tek bir satır
-  Widget _buildSummaryRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: Colors.grey.shade600),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 70,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 15),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Normal yükleme modu (görsel seçme + yükle)
-  Widget _buildUploadView() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-            const Text(
-              'Fiş veya ekran görüntüsü yükleyin. OCR ile otomatik okunacak.\n'
-              'Uzun fişler için 2 görsel seçebilirsiniz.',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-
-            // ── Seçilen Görseller Önizleme ─────────────────────────────────
-            if (_selectedImages.isNotEmpty) ...[
-              _buildThumbnailRow(),
-              const SizedBox(height: 16),
-            ],
-
-            if (_uploading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Column(
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Yükleniyor ve işleniyor...'),
-                    ],
-                  ),
-                ),
-              )
-            else ...[
-              // Görsel ekleme butonları
-              if (_selectedImages.length < _maxImages) ...[
-                OutlinedButton.icon(
-                  onPressed: _pickFromCamera,
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text('Kamera ile çek'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    foregroundColor: Colors.orange,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _pickFromGallery,
-                  icon: const Icon(Icons.photo_library),
-                  label: Text(_selectedImages.isEmpty
-                      ? 'Galeriden seç'
-                      : 'Galeriden ekle'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    foregroundColor: Colors.orange,
-                  ),
-                ),
-              ],
-
-              // Yükle butonu
-              if (_selectedImages.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _uploadImages,
-                  icon: const Icon(Icons.cloud_upload),
-                  label: Text(
-                    _selectedImages.length == 1
-                        ? 'Yükle (1 görsel)'
-                        : 'Yükle (${_selectedImages.length} görsel)',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ],
-
-            // ── Hata Mesajı ────────────────────────────────────────────────
-            if (_error != null) ...[
-              const SizedBox(height: 24),
-              Card(
-                color: Colors.red.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    _error!,
-                    style: TextStyle(color: Colors.red.shade800),
-                  ),
-                ),
-              ),
-            ],
-          ],
-    );
-  }
-
-  /// Seçilen görselleri yan yana küçük önizlemeler olarak gösterir.
-  /// Her birinin üzerinde çarpı (×) butonu ile kaldırılabilir.
   Widget _buildThumbnailRow() {
     return Row(
       children: List.generate(_selectedImages.length, (index) {
@@ -541,7 +710,7 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
             child: Stack(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: AspectRatio(
                     aspectRatio: 3 / 4,
                     child: Image.file(
@@ -550,15 +719,14 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
                     ),
                   ),
                 ),
-                // Çarpı (×) butonu
                 Positioned(
-                  top: 4,
-                  right: 4,
+                  top: 6,
+                  right: 6,
                   child: GestureDetector(
                     onTap: () => _removeImage(index),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
+                        color: Colors.black.withValues(alpha: 0.65),
                         shape: BoxShape.circle,
                       ),
                       padding: const EdgeInsets.all(4),
@@ -570,21 +738,18 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
                     ),
                   ),
                 ),
-                // Sayfa numarası
                 Positioned(
-                  bottom: 4,
-                  left: 4,
+                  bottom: 6,
+                  left: 6,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
+                      color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       '${index + 1}/$_maxImages',
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 11),
+                      style: const TextStyle(color: Colors.white, fontSize: 11),
                     ),
                   ),
                 ),
@@ -593,6 +758,104 @@ class _OrderUploadScreenState extends State<OrderUploadScreen> {
           ),
         );
       }),
+    );
+  }
+}
+
+class _LoadingCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _LoadingCard({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(subtitle),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.grey.shade700),
+          const SizedBox(width: 6),
+          Text(label),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _SummaryRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: Colors.grey.shade700),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
     );
   }
 }
