@@ -7,7 +7,7 @@ from uuid import UUID
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from redis.asyncio import from_url as redis_from_url
