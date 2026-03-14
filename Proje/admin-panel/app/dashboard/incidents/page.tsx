@@ -401,16 +401,22 @@ function IncidentModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
       aria-describedby="modal-desc"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <div
         ref={modalRef}
         className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto text-gray-900"
         tabIndex={-1}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header with X button */}
         <div className="flex items-start justify-between mb-4">

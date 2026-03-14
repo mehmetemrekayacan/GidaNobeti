@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui';
 import { Search, AlertTriangle, CheckCircle, XCircle, Edit2, Filter, UtensilsCrossed } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
@@ -417,16 +417,50 @@ function EditRiskModal({
 }) {
   const [status, setStatus] = useState<Restaurant['riskStatus']>(restaurant.riskStatus);
   const [reason, setReason] = useState(restaurant.riskReason || '');
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(status, reason);
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    const firstFocusable = modalRef.current?.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    firstFocusable?.focus();
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl text-gray-900">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Risk Durumunu Güncelle</h2>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-risk-modal-title"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        ref={modalRef}
+        className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl text-gray-900"
+        tabIndex={-1}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <h2 id="edit-risk-modal-title" className="text-xl font-bold text-gray-900 mb-4">Risk Durumunu Güncelle</h2>
         <p className="text-gray-900 mb-6">{restaurant.name}</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
