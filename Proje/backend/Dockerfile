@@ -23,6 +23,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy application code
 COPY . .
 
+# Add container startup script (wait DB + run migrations)
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Expose port
 EXPOSE 8000
 
@@ -30,5 +34,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health')"
 
+ENTRYPOINT ["/entrypoint.sh"]
+
 # Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

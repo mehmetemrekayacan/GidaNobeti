@@ -36,11 +36,25 @@ interface DashboardStats {
   total_incidents: number;
   top_restaurants: Array<{ name: string; order_count: number }>;
   incidents_by_restaurant: Array<{ restaurant: string; incident_count: number }>;
-  daily_breakdown: Array<{ date: string; orders: number; incidents: number }>;
+  daily_breakdown: Array<{
+    date: string;
+    orders?: number;
+    incidents?: number;
+    incident_count?: number;
+    total_incidents?: number;
+  }>;
 }
 
+type ChartPoint = {
+  date: string;
+  displayDate: string;
+  orders: number;
+  incidents: number;
+};
+
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(year, (month || 1) - 1, day || 1);
   return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
@@ -59,6 +73,71 @@ function calcTrend(
 
 type Period = 'last_7_days' | 'last_30_days';
 const PIE_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'];
+
+function toNumber(value: unknown): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toDateKey(value: string): string {
+  const normalized = String(value || '').trim();
+  if (!normalized) return normalized;
+
+  const directDate = normalized.match(/^(\d{4}-\d{2}-\d{2})$/);
+  if (directDate) return directDate[1];
+
+  const prefixedDate = normalized.match(/^(\d{4}-\d{2}-\d{2})[T\s]/);
+  if (prefixedDate) return prefixedDate[1];
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return normalized;
+
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, '0');
+  const d = String(parsed.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function dateToLocalKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function buildChartData(
+  dailyBreakdown: DashboardStats['daily_breakdown'],
+  period: Period
+): ChartPoint[] {
+  const days = period === 'last_30_days' ? 30 : 7;
+  const map = new Map<string, { orders: number; incidents: number }>();
+
+  (dailyBreakdown || []).forEach((item) => {
+    if (!item?.date) return;
+    const key = toDateKey(item.date);
+    map.set(key, {
+      orders: toNumber(item.orders),
+      incidents: toNumber(item.incidents ?? item.incident_count ?? item.total_incidents ?? 0),
+    });
+  });
+
+  const today = new Date();
+  const points: ChartPoint[] = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const key = dateToLocalKey(d);
+    const row = map.get(key);
+    points.push({
+      date: key,
+      displayDate: formatDate(key),
+      orders: row?.orders ?? 0,
+      incidents: row?.incidents ?? 0,
+    });
+  }
+
+  return points;
+}
 
 function DashboardSkeleton() {
   return (
@@ -129,16 +208,12 @@ export default function DashboardPage() {
   if (!stats) return null;
 
   const riskyRestaurantCount = stats.incidents_by_restaurant?.length || 0;
-  const daily = stats.daily_breakdown || [];
+  const chartData = buildChartData(stats.daily_breakdown || [], period);
+  const daily = chartData;
   const incidentsByRestaurant = stats.incidents_by_restaurant || [];
 
   const ordersTrend = calcTrend(daily, 'orders');
   const incidentsTrend = calcTrend(daily, 'incidents');
-
-  const chartData = daily.map((d) => ({
-    ...d,
-    displayDate: formatDate(d.date),
-  }));
 
   const statsCards = [
     {
@@ -240,7 +315,8 @@ export default function DashboardPage() {
                   <Tooltip
                     contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', color: '#1f2937' }}
                     labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-                    formatter={(value: number) => [value]}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(value: any) => [Number(value ?? 0)]}
                     labelFormatter={(label) => label}
                   />
                   <Line
@@ -285,8 +361,8 @@ export default function DashboardPage() {
                     cx="50%"
                     cy="50%"
                     outerRadius={90}
-                    label={({ name, percent }) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
+                    label={({ name, percent }: { name?: string; percent?: number }) =>
+                      `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`
                     }
                   >
                     {incidentsByRestaurant.map((_, index) => (
@@ -294,7 +370,8 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => [value, 'Vaka']}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(value: any) => [Number(value ?? 0), 'Vaka']}
                     contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', color: '#1f2937' }}
                     labelStyle={{ color: '#1f2937', fontWeight: 600 }}
                   />
@@ -334,6 +411,15 @@ export default function DashboardPage() {
           )}
         </div>
       </Card>
+
+      <style jsx global>{`
+        .fixed.inset-0.bg-black,
+        .fixed.inset-0[class*='bg-black'] {
+          background-color: rgba(0, 0, 0, 0.5) !important;
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+        }
+      `}</style>
     </div>
   );
 }

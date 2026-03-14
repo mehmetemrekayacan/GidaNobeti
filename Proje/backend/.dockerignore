@@ -7,6 +7,7 @@ __pycache__/
 venv/
 env/
 ENV/
+.venv/
 
 # Testing
 .pytest_cache/
@@ -36,3 +37,7 @@ Thumbs.db
 # Git
 .git/
 .gitignore
+
+# Docker
+Dockerfile
+Dockerfile*

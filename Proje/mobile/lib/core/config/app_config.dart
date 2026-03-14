@@ -1,16 +1,12 @@
+import 'package:flutter/foundation.dart';
+
 class AppConfig {
   AppConfig._();
 
-  static const String _defaultApiBaseUrl = 'http://localhost:8000';
+  // USB tüneli (adb reverse) kullandığımız için artık localhost diyoruz
+  static const String _apiBaseUrl = 'http://127.0.0.1:8000';
 
   static String get apiBaseUrl {
-    const configured = String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: _defaultApiBaseUrl,
-    );
-    if (configured.endsWith('/')) {
-      return configured.substring(0, configured.length - 1);
-    }
-    return configured;
+    return _apiBaseUrl;
   }
 }

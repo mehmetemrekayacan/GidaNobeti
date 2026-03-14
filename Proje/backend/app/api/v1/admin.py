@@ -7,7 +7,7 @@ from uuid import UUID
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from redis.asyncio import from_url as redis_from_url
@@ -129,32 +129,56 @@ async def get_dashboard_statistics(
         for name, count in incidents_by_restaurant_result.all()
     ]
     
-    # Daily breakdown (for charts)
-    daily_breakdown_query = (
+    # Daily breakdown (for charts): aggregate orders and incidents independently,
+    # then merge by day so incident points are preserved even without same-day orders.
+    daily_orders_query = (
         select(
             func.date(Order.declared_at).label("date"),
             func.count(Order.id).label("orders"),
-            func.count(func.distinct(HealthIncident.id)).label("incidents")
-        )
-        .outerjoin(
-            HealthIncident,
-            and_(
-                HealthIncident.suspected_order_id == Order.id,
-                func.date(HealthIncident.report_date) == func.date(Order.declared_at)
-            )
         )
         .where(Order.declared_at >= start_date)
         .group_by(func.date(Order.declared_at))
         .order_by(func.date(Order.declared_at))
     )
-    daily_breakdown_result = await db.execute(daily_breakdown_query)
+    daily_incidents_query = (
+        select(
+            func.date(HealthIncident.report_date).label("date"),
+            func.count(HealthIncident.id).label("incidents"),
+        )
+        .where(HealthIncident.report_date >= start_date)
+        .group_by(func.date(HealthIncident.report_date))
+        .order_by(func.date(HealthIncident.report_date))
+    )
+
+    daily_orders_result = await db.execute(daily_orders_query)
+    daily_incidents_result = await db.execute(daily_incidents_query)
+
+    daily_map: dict[str, dict[str, int]] = {}
+
+    for date, orders in daily_orders_result.all():
+        if not date:
+            continue
+        date_key = date.isoformat() if hasattr(date, "isoformat") else str(date)
+        daily_map[date_key] = {
+            "orders": orders or 0,
+            "incidents": 0,
+        }
+
+    for date, incidents in daily_incidents_result.all():
+        if not date:
+            continue
+        date_key = date.isoformat() if hasattr(date, "isoformat") else str(date)
+        if date_key not in daily_map:
+            daily_map[date_key] = {"orders": 0, "incidents": 0}
+        daily_map[date_key]["incidents"] = incidents or 0
+
     daily_breakdown = [
         {
-            "date": date.isoformat() if date else None,
-            "orders": orders or 0,
-            "incidents": incidents or 0
+            "date": date_key,
+            "orders": values["orders"],
+            "incidents": values["incidents"],
         }
-        for date, orders, incidents in daily_breakdown_result.all()
+        for date_key, values in sorted(daily_map.items(), key=lambda item: item[0])
     ]
 
     response_payload = {

@@ -424,7 +424,7 @@ function EditRiskModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl text-gray-900">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Risk Durumunu Güncelle</h2>
         <p className="text-gray-900 mb-6">{restaurant.name}</p>

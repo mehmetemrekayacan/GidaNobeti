@@ -1,30 +1,30 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
   db:
     image: postgres:16-alpine
     container_name: gidanobeti_db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: gidanobeti
-      POSTGRES_PASSWORD: secure_password_here
-      POSTGRES_DB: gidanobeti_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      POSTGRES_USER: ${POSTGRES_USER:-gidanobeti}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gidanobeti_password}
+      POSTGRES_DB: ${POSTGRES_DB:-gidanobeti_db}
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gidanobeti"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
     networks:
       - gidanobeti_network
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: gidanobeti_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
     volumes:
@@ -33,27 +33,29 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 5s
     networks:
       - gidanobeti_network
 
-  # Backend API
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: gidanobeti_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://gidanobeti:gidanobeti_password@db:5432/gidanobeti_db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-env}
+      DEBUG: ${DEBUG:-True}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://gidanobeti:secure_password_here@db:5432/gidanobeti_db
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: your-super-secret-jwt-key-change-this
-      DEBUG: "True"
-      DASHBOARD_CACHE_ENABLED: "True"
-      ENVIRONMENT: development
     volumes:
-      - ./backend:/app
+      - ./backend/app:/app/app
     depends_on:
       db:
         condition: service_healthy

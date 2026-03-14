@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { Suspense, useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui';
 import { Search, Filter, Download, Calendar, Package } from 'lucide-react';
@@ -367,7 +367,7 @@ function OrdersTable({
   );
 }
 
-export default function OrdersPage() {
+function OrdersPageContent() {
   const searchParams = useSearchParams();
   const orderIdParam = searchParams.get('order');
   const studentSearchParam = searchParams.get('search') ?? '';
@@ -746,5 +746,13 @@ export default function OrdersPage() {
         rowRef={rowRef}
       />
     </div>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<div>Yukleniyor...</div>}>
+      <OrdersPageContent />
+    </Suspense>
   );
 }
